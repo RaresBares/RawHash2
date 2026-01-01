@@ -93,7 +93,6 @@ test/evaluation/rawsamble/*/*slurm*
 test/evaluation/rawsamble/*/rawsamble*
 test/evaluation/rawsamble/*/run_minimap2.sh
 test/evaluation/rawsamble/d1_sars-cov-2_r94
-test/evaluation/rawsamble/d5_human_na12878_r94
 test/evaluation/rawsamble/d6_ecoli_r104
 test/evaluation/rawsamble/d8_human_hg002_r1041
 test/evaluation/rawsamble/d10_dmelanogaster_r1041

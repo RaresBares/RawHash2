@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DATASET="d4_green_algae_r94"
+DATASET="d5_human_na12878_r94"
 SIGNALS="../../../data/${DATASET}/pod5_files/"
 READS="../../../data/${DATASET}/reads.fasta"
 REF="../../../data/${DATASET}/ref.fa"
