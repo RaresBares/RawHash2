@@ -418,7 +418,7 @@ static void binseg_recursive(float *sig, uint32_t start, uint32_t end,
 
 static float* detect_events_binseg(void *km, float *sig, uint32_t n, uint32_t *n_events) {
     if (n < 10) { *n_events = 0; return 0; }
-    float penalty = 2.0f * logf((float)n);
+    float penalty = logf((float)n); // BIC with k=1 (mean only, normalized signals)
     uint32_t min_size = 5;
     uint32_t max_cp = n / min_size;
 
@@ -450,7 +450,7 @@ static float* detect_events_binseg(void *km, float *sig, uint32_t n, uint32_t *n
 static float* detect_events_window(void *km, float *sig, uint32_t n, uint32_t *n_events) {
     if (n < 10) { *n_events = 0; return 0; }
     uint32_t w = 20; // window size
-    float penalty = 2.0f * logf((float)n);
+    float penalty = logf((float)(2 * w)); // local window penalty, not global
     uint32_t min_size = 5;
 
     double *ps = (double*)ri_kcalloc(km, n+1, sizeof(double));

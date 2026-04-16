@@ -436,6 +436,12 @@ def _segment_pelt(sig, min_size=5):
     if n < 2 * min_size:
         return []
 
+    # Subsample very long signals for speed
+    if n > 20000:
+        ratio = n / 20000
+        sig = sig[::int(ratio)]
+        n = len(sig)
+
     penalty = 2.0 * np.log(n)
     ps = np.zeros(n + 1)
     pss = np.zeros(n + 1)
@@ -472,8 +478,8 @@ def _segment_pelt(sig, min_size=5):
     pos = n
     while pos > 0:
         if prev[pos] > 0:
-            cps.append(prev[pos])
-        pos = prev[pos]
+            cps.append(int(prev[pos]))
+        pos = int(prev[pos])
 
     return sorted(cps)
 
@@ -484,7 +490,7 @@ def _segment_binseg(sig, min_size=5, max_depth=500):
     if n < 2 * min_size:
         return []
 
-    penalty = 2.0 * np.log(n)
+    penalty = np.log(n)  # BIC with k=1 for normalized signals
     ps = np.zeros(n + 1)
     pss = np.zeros(n + 1)
     for i in range(n):
@@ -536,7 +542,7 @@ def _segment_window(sig, w=20, min_size=5):
     if n < 2 * w:
         return []
 
-    penalty = 2.0 * np.log(n)
+    penalty = np.log(2.0 * w)  # local window penalty
     ps = np.zeros(n + 1)
     pss = np.zeros(n + 1)
     for i in range(n):
