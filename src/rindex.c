@@ -282,7 +282,7 @@ static void *worker_sig_pipeline(void *shared, int step, void *in)
 				float* s_values;
 				
 				if(!(p->ri->flag&RI_I_NO_EVENT_DETECTION))
-					s_values = detect_events(0, t->l_sig, t->sig, p->ri->window_length1, p->ri->window_length2, p->ri->threshold1, p->ri->threshold2, p->ri->peak_height, &s_sum, &s_std, &n_events_sum, &s_len);
+					s_values = detect_events(0, t->l_sig, t->sig, p->ri->window_length1, p->ri->window_length2, p->ri->threshold1, p->ri->threshold2, p->ri->peak_height, &s_sum, &s_std, &n_events_sum, &s_len, p->ri->segmenter_type, p->ri->python_segmenter_script);
 				else s_values = normalize_signal(0, t->sig, t->l_sig, &s_sum, &s_std, &n_events_sum, &s_len);
 				
 				short out = (p->ri->flag&RI_I_OUT_QUANTIZE)?1:0;
@@ -924,7 +924,7 @@ ri_idx_t* ri_idx_gen(mm_bseq_file_t* fp, ri_pore_t* pore, float diff, int b, int
 	return pl.ri;
 }
 
-ri_idx_t* ri_idx_siggen(ri_sig_file_t** fp, char **f, int &cur_f, int n_f, ri_pore_t* pore, float diff, int b, int w, int e, int n, int q, int k, float fine_min, float fine_max, float fine_range, uint32_t window_length1, uint32_t window_length2, float threshold1, float threshold2, float peak_height, int flag, int mini_batch_size, int n_threads, int io_n_threads, uint64_t batch_size)
+ri_idx_t* ri_idx_siggen(ri_sig_file_t** fp, char **f, int &cur_f, int n_f, ri_pore_t* pore, float diff, int b, int w, int e, int n, int q, int k, float fine_min, float fine_max, float fine_range, uint32_t window_length1, uint32_t window_length2, float threshold1, float threshold2, float peak_height, int flag, int mini_batch_size, int n_threads, int io_n_threads, uint64_t batch_size, uint32_t segmenter_type = 0, char *python_segmenter_script = 0)
 {
 	if(!(flag&RI_I_SIG_TARGET)) return 0;
 
@@ -953,6 +953,8 @@ ri_idx_t* ri_idx_siggen(ri_sig_file_t** fp, char **f, int &cur_f, int n_f, ri_po
 	pl.ri->threshold1 = threshold1;
 	pl.ri->threshold2 = threshold2;
 	pl.ri->peak_height = peak_height;
+	pl.ri->segmenter_type = segmenter_type;
+	pl.ri->python_segmenter_script = python_segmenter_script;
 
 	// if(pl.ri->flag&RI_I_REV_QUERY) generate_kmers(pl.ri);
 
@@ -974,7 +976,7 @@ ri_idx_t* ri_idx_reader_read(ri_idx_reader_t* r, ri_pore_t* pore, int n_threads,
 	if (r->is_idx) {
 		ri = ri_idx_load(r->fp.idx);
 	} else if(r->opt.flag&RI_I_SIG_TARGET) {
-		ri = ri_idx_siggen(&(r->sfp), r->sf, r->cur_f, r->n_f, pore, r->opt.diff, r->opt.b, r->opt.w, r->opt.e, r->opt.n, r->opt.q, r->opt.k, r->opt.fine_min, r->opt.fine_max, r->opt.fine_range, r->opt.window_length1, r->opt.window_length2, r->opt.threshold1, r->opt.threshold2, r->opt.peak_height, r->opt.flag, r->opt.mini_batch_size, n_threads, io_n_threads, r->opt.batch_size);
+		ri = ri_idx_siggen(&(r->sfp), r->sf, r->cur_f, r->n_f, pore, r->opt.diff, r->opt.b, r->opt.w, r->opt.e, r->opt.n, r->opt.q, r->opt.k, r->opt.fine_min, r->opt.fine_max, r->opt.fine_range, r->opt.window_length1, r->opt.window_length2, r->opt.threshold1, r->opt.threshold2, r->opt.peak_height, r->opt.flag, r->opt.mini_batch_size, n_threads, io_n_threads, r->opt.batch_size, r->opt.segmenter_type, r->opt.python_segmenter_script);
 	} else{
 		ri = ri_idx_gen(r->fp.seq, pore, r->opt.diff, r->opt.b, r->opt.w, r->opt.e, r->opt.n, r->opt.q, r->opt.k, r->opt.fine_min, r->opt.fine_max, r->opt.fine_range, r->opt.flag, r->opt.mini_batch_size, n_threads, io_n_threads, r->opt.batch_size);
 	}

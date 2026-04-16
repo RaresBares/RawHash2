@@ -43,6 +43,8 @@ typedef struct ri_idx_s{
 	float threshold1;
 	float threshold2;
 	float peak_height;
+	uint32_t segmenter_type;
+	char *python_segmenter_script;
 	float sample_per_base;
 	uint32_t bp_per_sec;
 	uint32_t sample_rate;

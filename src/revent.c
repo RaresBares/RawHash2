@@ -3,6 +3,10 @@
 #include <assert.h>
 #include <float.h>
 #include <math.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <stdio.h>
 #include "rutils.h"
 
 //Some of the functions here are adopted from the Sigmap implementation (https://github.com/haowenz/sigmap/tree/c9a40483264c9514587a36555b5af48d3f054f6f). We have optimized the Sigmap implementation to work with the hash tables efficiently.
@@ -219,6 +223,329 @@ static inline float* gen_events(void *km,
 	return events;
 }
 
+static float* detect_events_hmm(void *km, float *sig, uint32_t n, uint32_t *n_events) {
+    if (n < 10) { *n_events = 0; return 0; }
+    uint32_t n_states = 4;
+    float state_means[4], state_stds[4];
+    // Initialize with quantiles
+    float *sorted = (float*)ri_kmalloc(km, n * sizeof(float));
+    memcpy(sorted, sig, n * sizeof(float));
+    qsort(sorted, n, sizeof(float), compare_floats);
+    for (uint32_t s = 0; s < n_states; s++) {
+        uint32_t idx = (s + 1) * n / (n_states + 1);
+        state_means[s] = sorted[idx];
+        state_stds[s] = 1.0f;
+    }
+    ri_kfree(km, sorted);
+
+    // K-means refinement (5 iterations)
+    uint32_t *assignments = (uint32_t*)ri_kcalloc(km, n, sizeof(uint32_t));
+    for (int iter = 0; iter < 5; iter++) {
+        for (uint32_t i = 0; i < n; i++) {
+            float best_dist = FLT_MAX;
+            for (uint32_t s = 0; s < n_states; s++) {
+                float d = fabsf(sig[i] - state_means[s]);
+                if (d < best_dist) { best_dist = d; assignments[i] = s; }
+            }
+        }
+        for (uint32_t s = 0; s < n_states; s++) {
+            float sum = 0; uint32_t cnt = 0;
+            for (uint32_t i = 0; i < n; i++) {
+                if (assignments[i] == s) { sum += sig[i]; cnt++; }
+            }
+            if (cnt > 1) {
+                state_means[s] = sum / cnt;
+                float var_sum = 0;
+                for (uint32_t i = 0; i < n; i++)
+                    if (assignments[i] == s) var_sum += (sig[i] - state_means[s]) * (sig[i] - state_means[s]);
+                state_stds[s] = sqrtf(var_sum / cnt);
+                if (state_stds[s] < 0.1f) state_stds[s] = 0.1f;
+            }
+        }
+    }
+
+    // Viterbi
+    float stay_log = logf(0.95f);
+    float trans_log = logf(0.05f / (n_states - 1));
+    float *V = (float*)ri_kmalloc(km, n * n_states * sizeof(float));
+    uint32_t *path = (uint32_t*)ri_kmalloc(km, n * n_states * sizeof(uint32_t));
+
+    for (uint32_t s = 0; s < n_states; s++) {
+        float emit = -0.5f * logf(2 * 3.14159f * state_stds[s] * state_stds[s])
+                     -0.5f * ((sig[0] - state_means[s]) / state_stds[s]) * ((sig[0] - state_means[s]) / state_stds[s]);
+        V[s] = logf(1.0f / n_states) + emit;
+    }
+
+    for (uint32_t t = 1; t < n; t++) {
+        for (uint32_t s = 0; s < n_states; s++) {
+            float emit = -0.5f * logf(2 * 3.14159f * state_stds[s] * state_stds[s])
+                         -0.5f * ((sig[t] - state_means[s]) / state_stds[s]) * ((sig[t] - state_means[s]) / state_stds[s]);
+            float best = -FLT_MAX;
+            uint32_t best_s = 0;
+            for (uint32_t ps = 0; ps < n_states; ps++) {
+                float v = V[(t-1)*n_states + ps] + (ps == s ? stay_log : trans_log);
+                if (v > best) { best = v; best_s = ps; }
+            }
+            V[t*n_states + s] = best + emit;
+            path[t*n_states + s] = best_s;
+        }
+    }
+
+    // Backtrack
+    uint32_t *states = assignments; // reuse
+    float best = -FLT_MAX;
+    for (uint32_t s = 0; s < n_states; s++) {
+        if (V[(n-1)*n_states + s] > best) { best = V[(n-1)*n_states + s]; states[n-1] = s; }
+    }
+    for (int t = n - 2; t >= 0; t--)
+        states[t] = path[(t+1)*n_states + states[t+1]];
+
+    ri_kfree(km, V); ri_kfree(km, path);
+
+    // Extract breakpoints
+    uint32_t *peaks = (uint32_t*)ri_kmalloc(km, n * sizeof(uint32_t));
+    uint32_t n_peaks = 0;
+    for (uint32_t i = 1; i < n; i++)
+        if (states[i] != states[i-1]) peaks[n_peaks++] = i;
+
+    float *events = 0;
+    if (n_peaks > 0) events = gen_events(km, sig, peaks, n_peaks, n, n_events);
+    else { *n_events = 0; }
+    ri_kfree(km, peaks); ri_kfree(km, assignments);
+    return events;
+}
+
+static float* detect_events_pelt(void *km, float *sig, uint32_t n, uint32_t *n_events) {
+    if (n < 10) { *n_events = 0; return 0; }
+    float penalty = 2.0f * logf((float)n);  // BIC penalty
+    uint32_t min_size = 5;
+
+    // cost[i][j] = sum of squared residuals for segment [i,j)
+    // Use prefix sums for O(1) segment cost
+    double *ps = (double*)ri_kcalloc(km, n+1, sizeof(double));
+    double *pss = (double*)ri_kcalloc(km, n+1, sizeof(double));
+    for (uint32_t i = 0; i < n; i++) {
+        ps[i+1] = ps[i] + sig[i];
+        pss[i+1] = pss[i] + (double)sig[i] * sig[i];
+    }
+
+    // F[j] = optimal cost for signal[0..j)
+    double *F = (double*)ri_kmalloc(km, (n+1) * sizeof(double));
+    int *prev = (int*)ri_kmalloc(km, (n+1) * sizeof(int));
+    F[0] = -penalty;
+    for (uint32_t j = 1; j <= n; j++) { F[j] = 1e30; prev[j] = 0; }
+
+    // Candidate set (PELT pruning)
+    uint32_t *cands = (uint32_t*)ri_kmalloc(km, (n+1) * sizeof(uint32_t));
+    uint32_t n_cands = 1;
+    cands[0] = 0;
+
+    for (uint32_t j = min_size; j <= n; j++) {
+        uint32_t new_n_cands = 0;
+        for (uint32_t ci = 0; ci < n_cands; ci++) {
+            uint32_t t = cands[ci];
+            if (j - t < min_size) continue;
+            double seg_sum = ps[j] - ps[t];
+            double seg_sumsq = pss[j] - pss[t];
+            uint32_t seg_len = j - t;
+            double seg_mean = seg_sum / seg_len;
+            double cost = seg_sumsq - seg_sum * seg_mean; // SSR
+            double total = F[t] + cost + penalty;
+            if (total < F[j]) { F[j] = total; prev[j] = t; }
+            // PELT pruning
+            if (F[t] + cost <= F[j]) cands[new_n_cands++] = t;
+        }
+        cands[new_n_cands++] = j;
+        n_cands = new_n_cands;
+    }
+
+    // Backtrack changepoints
+    uint32_t *cps = (uint32_t*)ri_kmalloc(km, n * sizeof(uint32_t));
+    uint32_t n_cp = 0;
+    int pos = n;
+    while (pos > 0) {
+        if (prev[pos] > 0) cps[n_cp++] = prev[pos];
+        pos = prev[pos];
+    }
+    // Reverse
+    for (uint32_t i = 0; i < n_cp / 2; i++) {
+        uint32_t tmp = cps[i]; cps[i] = cps[n_cp-1-i]; cps[n_cp-1-i] = tmp;
+    }
+
+    ri_kfree(km, ps); ri_kfree(km, pss); ri_kfree(km, F); ri_kfree(km, prev);
+
+    float *events = 0;
+    if (n_cp > 0) events = gen_events(km, sig, cps, n_cp, n, n_events);
+    else { *n_events = 0; }
+    ri_kfree(km, cands); ri_kfree(km, cps);
+    return events;
+}
+
+static void binseg_recursive(float *sig, uint32_t start, uint32_t end,
+                              double *ps, double *pss, float penalty, uint32_t min_size,
+                              uint32_t *cps, uint32_t *n_cp, uint32_t max_cp) {
+    if (end - start < 2 * min_size || *n_cp >= max_cp) return;
+
+    double total_sum = ps[end] - ps[start];
+    double total_sumsq = pss[end] - pss[start];
+    uint32_t total_len = end - start;
+    double total_cost = total_sumsq - total_sum * total_sum / total_len;
+
+    double best_gain = -1;
+    uint32_t best_t = start + min_size;
+
+    for (uint32_t t = start + min_size; t <= end - min_size; t++) {
+        double left_sum = ps[t] - ps[start];
+        double left_sumsq = pss[t] - pss[start];
+        uint32_t left_len = t - start;
+        double left_cost = left_sumsq - left_sum * left_sum / left_len;
+
+        double right_sum = ps[end] - ps[t];
+        double right_sumsq = pss[end] - pss[t];
+        uint32_t right_len = end - t;
+        double right_cost = right_sumsq - right_sum * right_sum / right_len;
+
+        double gain = total_cost - left_cost - right_cost;
+        if (gain > best_gain) { best_gain = gain; best_t = t; }
+    }
+
+    if (best_gain > penalty) {
+        cps[(*n_cp)++] = best_t;
+        binseg_recursive(sig, start, best_t, ps, pss, penalty, min_size, cps, n_cp, max_cp);
+        binseg_recursive(sig, best_t, end, ps, pss, penalty, min_size, cps, n_cp, max_cp);
+    }
+}
+
+static float* detect_events_binseg(void *km, float *sig, uint32_t n, uint32_t *n_events) {
+    if (n < 10) { *n_events = 0; return 0; }
+    float penalty = 2.0f * logf((float)n);
+    uint32_t min_size = 5;
+    uint32_t max_cp = n / min_size;
+
+    double *ps = (double*)ri_kcalloc(km, n+1, sizeof(double));
+    double *pss = (double*)ri_kcalloc(km, n+1, sizeof(double));
+    for (uint32_t i = 0; i < n; i++) {
+        ps[i+1] = ps[i] + sig[i];
+        pss[i+1] = pss[i] + (double)sig[i] * sig[i];
+    }
+
+    uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
+    uint32_t n_cp = 0;
+    binseg_recursive(sig, 0, n, ps, pss, penalty, min_size, cps, &n_cp, max_cp);
+
+    // Sort changepoints
+    for (uint32_t i = 0; i < n_cp; i++)
+        for (uint32_t j = i+1; j < n_cp; j++)
+            if (cps[i] > cps[j]) { uint32_t tmp = cps[i]; cps[i] = cps[j]; cps[j] = tmp; }
+
+    ri_kfree(km, ps); ri_kfree(km, pss);
+
+    float *events = 0;
+    if (n_cp > 0) events = gen_events(km, sig, cps, n_cp, n, n_events);
+    else { *n_events = 0; }
+    ri_kfree(km, cps);
+    return events;
+}
+
+static float* detect_events_window(void *km, float *sig, uint32_t n, uint32_t *n_events) {
+    if (n < 10) { *n_events = 0; return 0; }
+    uint32_t w = 20; // window size
+    float penalty = 2.0f * logf((float)n);
+    uint32_t min_size = 5;
+
+    double *ps = (double*)ri_kcalloc(km, n+1, sizeof(double));
+    double *pss = (double*)ri_kcalloc(km, n+1, sizeof(double));
+    for (uint32_t i = 0; i < n; i++) {
+        ps[i+1] = ps[i] + sig[i];
+        pss[i+1] = pss[i] + (double)sig[i] * sig[i];
+    }
+
+    // Compute cost reduction at each point using window
+    uint32_t *peaks = (uint32_t*)ri_kmalloc(km, n * sizeof(uint32_t));
+    uint32_t n_peaks = 0;
+
+    for (uint32_t i = w; i <= n - w; i += min_size) {
+        uint32_t left_s = (i > w) ? i - w : 0;
+        uint32_t right_e = (i + w < n) ? i + w : n;
+
+        double total_sum = ps[right_e] - ps[left_s];
+        double total_sumsq = pss[right_e] - pss[left_s];
+        uint32_t total_len = right_e - left_s;
+        double total_cost = total_sumsq - total_sum * total_sum / total_len;
+
+        double left_sum = ps[i] - ps[left_s];
+        double left_sumsq = pss[i] - pss[left_s];
+        uint32_t left_len = i - left_s;
+        double left_cost = left_sumsq - left_sum * left_sum / left_len;
+
+        double right_sum = ps[right_e] - ps[i];
+        double right_sumsq = pss[right_e] - pss[i];
+        uint32_t right_len = right_e - i;
+        double right_cost = right_sumsq - right_sum * right_sum / right_len;
+
+        double gain = total_cost - left_cost - right_cost;
+        if (gain > penalty) peaks[n_peaks++] = i;
+    }
+
+    ri_kfree(km, ps); ri_kfree(km, pss);
+
+    float *events = 0;
+    if (n_peaks > 0) events = gen_events(km, sig, peaks, n_peaks, n, n_events);
+    else { *n_events = 0; }
+    ri_kfree(km, peaks);
+    return events;
+}
+
+static float* detect_events_python(void *km, float *sig, uint32_t n, const char *script_path, uint32_t *n_events) {
+    if (!script_path || script_path[0] == '\0') {
+        fprintf(stderr, "[ERROR] --segmenter python requires --segmenter-script <path>\n");
+        *n_events = 0;
+        return 0;
+    }
+
+    int pipe_in[2], pipe_out[2];
+    if (pipe(pipe_in) < 0 || pipe(pipe_out) < 0) {
+        fprintf(stderr, "[ERROR] pipe() failed for Python segmenter\n");
+        *n_events = 0;
+        return 0;
+    }
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(pipe_in[1]); close(pipe_out[0]);
+        dup2(pipe_in[0], STDIN_FILENO);
+        dup2(pipe_out[1], STDOUT_FILENO);
+        close(pipe_in[0]); close(pipe_out[1]);
+        execlp("python3", "python3", script_path, (char*)NULL);
+        _exit(1);
+    }
+
+    close(pipe_in[0]); close(pipe_out[1]);
+
+    FILE *to_child = fdopen(pipe_in[1], "w");
+    fprintf(to_child, "%u\n", n);
+    for (uint32_t i = 0; i < n; i++) fprintf(to_child, "%.8f\n", sig[i]);
+    fclose(to_child);
+
+    FILE *from_child = fdopen(pipe_out[0], "r");
+    uint32_t n_ev = 0;
+    if (fscanf(from_child, "%u", &n_ev) != 1) n_ev = 0;
+
+    float *events = 0;
+    if (n_ev > 0) {
+        events = (float*)ri_kmalloc(km, n_ev * sizeof(float));
+        for (uint32_t i = 0; i < n_ev; i++) {
+            if (fscanf(from_child, "%f", &events[i]) != 1) { events[i] = 0; }
+        }
+    }
+    fclose(from_child);
+
+    int status;
+    waitpid(pid, &status, 0);
+    *n_events = n_ev;
+    return events;
+}
+
 float* normalize_signal(void *km,
 						const float* sig,
 						const uint32_t s_len,
@@ -266,43 +593,60 @@ float* detect_events(void *km,
 					 double* mean_sum,
 					 double* std_dev_sum,
 					 uint32_t* n_events_sum,
-					 uint32_t* n_events)
+					 uint32_t* n_events,
+					 uint32_t segmenter_type,
+					 const char *python_script)
 {
 	float* prefix_sum = (float*)ri_kcalloc(km, s_len+1, sizeof(float));
 	float* prefix_sum_square = (float*)ri_kcalloc(km, s_len+1, sizeof(float));
 
-	//Normalize the signal
 	uint32_t n_signals = 0;
 	(*n_events) = 0;
 	float* norm_signals = normalize_signal(km, sig, s_len, mean_sum, std_dev_sum, n_events_sum, &n_signals);
+	if(n_signals == 0) { ri_kfree(km, prefix_sum); ri_kfree(km, prefix_sum_square); return 0; }
 
-	//output the signal
-	if(n_signals == 0) return 0;
+	// Dispatch to non-default segmenters
+	if (segmenter_type != RI_SEGMENTER_DEFAULT) {
+		float *events = 0;
+		switch (segmenter_type) {
+			case RI_SEGMENTER_HMM:
+				events = detect_events_hmm(km, norm_signals, n_signals, n_events);
+				break;
+			case RI_SEGMENTER_PELT:
+				events = detect_events_pelt(km, norm_signals, n_signals, n_events);
+				break;
+			case RI_SEGMENTER_BINSEG:
+				events = detect_events_binseg(km, norm_signals, n_signals, n_events);
+				break;
+			case RI_SEGMENTER_WINDOW:
+				events = detect_events_window(km, norm_signals, n_signals, n_events);
+				break;
+			case RI_SEGMENTER_PYTHON:
+				events = detect_events_python(km, norm_signals, n_signals, python_script, n_events);
+				break;
+		}
+		if (events && *n_events > 0) {
+			ri_kfree(km, norm_signals);
+			ri_kfree(km, prefix_sum);
+			ri_kfree(km, prefix_sum_square);
+			return events;
+		}
+		// Fall through to default if segmenter returned nothing
+	}
+
+	// Default t-stat segmenter (original code)
 	comp_prefix_prefixsq(norm_signals, n_signals, prefix_sum, prefix_sum_square);
-	
+
 	float* tstat1 = comp_tstat(km, prefix_sum, prefix_sum_square, n_signals, window_length1);
 	float* tstat2 = comp_tstat(km, prefix_sum, prefix_sum_square, n_signals, window_length2);
-	ri_detect_t short_detector = {.DEF_PEAK_POS = -1,
-								  .DEF_PEAK_VAL = FLT_MAX,
-								  .sig = tstat1,
-								  .s_len = n_signals,
-								  .threshold = threshold1,
-								  .window_length = window_length1,
-								  .masked_to = 0,
-								  .peak_pos = -1,
-								  .peak_value = FLT_MAX,
-								  .valid_peak = 0};
-
-	ri_detect_t long_detector = {.DEF_PEAK_POS = -1,
-								 .DEF_PEAK_VAL = FLT_MAX,
-								 .sig = tstat2,
-								 .s_len = n_signals,
-								 .threshold = threshold2,
-								 .window_length = window_length2,
-								 .masked_to = 0,
-								 .peak_pos = -1,
-								 .peak_value = FLT_MAX,
-								 .valid_peak = 0};
+	ri_detect_t short_detector = {.DEF_PEAK_POS = -1, .DEF_PEAK_VAL = FLT_MAX,
+		.sig = tstat1, .s_len = n_signals, .threshold = threshold1,
+		.window_length = window_length1, .masked_to = 0, .peak_pos = -1,
+		.peak_value = FLT_MAX, .valid_peak = 0};
+	ri_detect_t long_detector = {.DEF_PEAK_POS = -1, .DEF_PEAK_VAL = FLT_MAX,
+		.sig = tstat2, .s_len = n_signals, .threshold = threshold2,
+		.window_length = window_length2, .masked_to = 0, .peak_pos = -1,
+		.peak_value = FLT_MAX, .valid_peak = 0};
 
 	uint32_t* peaks = (uint32_t*)ri_kmalloc(km, n_signals * sizeof(uint32_t));
 	ri_detect_t *detectors[2] = {&short_detector, &long_detector};
@@ -312,6 +656,5 @@ float* detect_events(void *km,
 	float* events = 0;
 	if(n_peaks > 0) events = gen_events(km, norm_signals, peaks, n_peaks, n_signals, n_events);
 	ri_kfree(km, norm_signals); ri_kfree(km, peaks);
-
 	return events;
 }

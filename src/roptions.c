@@ -19,6 +19,8 @@ void ri_idxopt_init(ri_idxopt_t *opt)
     opt->threshold1 = 4.0f; //--seg-threshold1
     opt->threshold2 = 3.5f; //--seg-threshold2
     opt->peak_height = 0.4f; //--seg-peak-height
+	opt->segmenter_type = RI_SEGMENTER_DEFAULT;
+	opt->python_segmenter_script = NULL;
 
 	// opt->window_length1 = 3; //--seg-window-length1
     // opt->window_length2 = 6; //--seg-window-length2
@@ -110,6 +112,8 @@ void ri_mapopt_init(ri_mapopt_t *opt)
     opt->threshold1 = 4.0f; //--seg-threshold1
     opt->threshold2 = 3.5f; //--seg-threshold2
     opt->peak_height = 0.4f; //--seg-peak-height
+	opt->segmenter_type = RI_SEGMENTER_DEFAULT;
+	opt->python_segmenter_script = NULL;
 
 	// opt->window_length1 = 3; //--seg-window-length1
     // opt->window_length2 = 7; //--seg-window-length2

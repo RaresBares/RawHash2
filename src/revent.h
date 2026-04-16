@@ -37,7 +37,9 @@ float* detect_events(void *km,
 					 double* mean_sum,
 					 double* std_dev_sum,
 					 uint32_t* n_events_sum,
-					 uint32_t *n_events);
+					 uint32_t *n_events,
+					 uint32_t segmenter_type = 0,
+					 const char *python_script = 0);
 
 #ifdef __cplusplus
 }

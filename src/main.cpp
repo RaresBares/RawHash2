@@ -81,6 +81,8 @@ static ko_longopt_t long_options[] = {
 	{ (char*)"io-thread",			ko_required_argument, 	369 },
 	{ (char*)"min-score2",			ko_required_argument, 	370 },
 	{ (char*)"version",				ko_no_argument, 	  	370 },
+	{ (char*)"segmenter",			ko_required_argument,	372 },
+	{ (char*)"segmenter-script",	ko_required_argument,	373 },
 	{ 0, 0, 0 }
 };
 
@@ -423,7 +425,22 @@ int main(int argc, char *argv[])
 		else if (c == 369) {io_n_threads = atoi(o.arg);}// --io-thread
 		else if (c == 370) opt.min_chaining_score2 = atoi(o.arg);// --min-score2
 		else if (c == 371) {puts(RH_VERSION); return 0;}// --version
+		else if (c == 372) { // --segmenter
+			if (strcmp(o.arg, "default") == 0) { opt.segmenter_type = RI_SEGMENTER_DEFAULT; ipt.segmenter_type = RI_SEGMENTER_DEFAULT; }
+			else if (strcmp(o.arg, "hmm") == 0) { opt.segmenter_type = RI_SEGMENTER_HMM; ipt.segmenter_type = RI_SEGMENTER_HMM; }
+			else if (strcmp(o.arg, "pelt") == 0) { opt.segmenter_type = RI_SEGMENTER_PELT; ipt.segmenter_type = RI_SEGMENTER_PELT; }
+			else if (strcmp(o.arg, "binseg") == 0) { opt.segmenter_type = RI_SEGMENTER_BINSEG; ipt.segmenter_type = RI_SEGMENTER_BINSEG; }
+			else if (strcmp(o.arg, "window") == 0) { opt.segmenter_type = RI_SEGMENTER_WINDOW; ipt.segmenter_type = RI_SEGMENTER_WINDOW; }
+			else if (strcmp(o.arg, "python") == 0) { opt.segmenter_type = RI_SEGMENTER_PYTHON; ipt.segmenter_type = RI_SEGMENTER_PYTHON; }
+			else { fprintf(stderr, "[ERROR] unknown segmenter '%s'\n", o.arg); return 1; }
+		}
+		else if (c == 373) { opt.python_segmenter_script = o.arg; ipt.python_segmenter_script = o.arg; } // --segmenter-script
 		else if (c == 'V') {puts(RH_VERSION); return 0;}
+	}
+
+	if (opt.segmenter_type == RI_SEGMENTER_PYTHON && opt.python_segmenter_script == NULL) {
+		fprintf(stderr, "[ERROR] --segmenter python requires --segmenter-script <path>\n");
+		return 1;
 	}
 
 	if (argc == o.ind || fp_help == stdout) {
@@ -493,6 +510,8 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    --seg-threshold1 FLOAT     [Advanced] Peak value threshold for the first window in segmentation [%g]\n", opt.threshold1);
 		fprintf(fp_help, "    --seg-threshold2 FLOAT     [Advanced] Peak value threshold for the first window in segmentation [%g]\n", opt.threshold2);
 		fprintf(fp_help, "    --seg-peak-height FLOAT     [Advanced] Peak height than the current signal to confirm the peak point in segmentation [%g]\n", opt.peak_height);
+		fprintf(fp_help, "    --segmenter STR     Event segmenter algorithm: 'default', 'hmm', 'pelt', 'binseg', 'window', 'python' [default]\n");
+		fprintf(fp_help, "    --segmenter-script FILE     Path to Python script for --segmenter python []\n");
 
 		fprintf(fp_help, "\n  Sequence Until Parameters:\n");
 		fprintf(fp_help, "    --sequence-until     Activates Sequence Until and performs real-time relative abundance calculations. The computation will stop as soon as an estimation with high confidence is reached without processing further reads from the set.\n");

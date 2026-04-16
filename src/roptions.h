@@ -15,6 +15,14 @@
 #define RI_I_OUT_QUANTIZE 0x80
 #define RI_I_NO_EVENT_DETECTION 0x100
 
+// Segmenter types
+#define RI_SEGMENTER_DEFAULT    0
+#define RI_SEGMENTER_HMM        1
+#define RI_SEGMENTER_PELT       2
+#define RI_SEGMENTER_BINSEG     3
+#define RI_SEGMENTER_WINDOW     4
+#define RI_SEGMENTER_PYTHON     5
+
 #define RI_M_SEQUENCEUNTIL	0x1
 #define RI_M_RMQ			0x2
 #define RI_M_HARD_MLEVEL	0x4
@@ -60,6 +68,8 @@ typedef struct ri_idxopt_s{
 	float threshold1;
 	float threshold2;
 	float peak_height;
+	uint32_t segmenter_type;
+	char *python_segmenter_script;
 	float sample_per_base;
 	uint32_t bp_per_sec;
 	uint32_t sample_rate;
@@ -140,6 +150,8 @@ typedef struct ri_mapopt_s{
 	float threshold1;
 	float threshold2;
 	float peak_height;
+	uint32_t segmenter_type;
+	char *python_segmenter_script;
 } ri_mapopt_t;
 
 /**
