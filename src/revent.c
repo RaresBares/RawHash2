@@ -209,17 +209,18 @@ static inline float* gen_events(void *km,
 	float* events = (float*)ri_kmalloc(km, n_ev*sizeof(float));
 
 	uint32_t start_idx = 0, segment_length = 0;
+	uint32_t actual_events = 0;
 
-	for (uint32_t pi = 0, i = 0; pi < peak_size && i < n_ev; pi++){
+	for (uint32_t pi = 0; pi < peak_size; pi++){
 		if (!(peaks[pi] > 0 && peaks[pi] < s_len)) continue;
 
     	segment_length = peaks[pi] - start_idx;
-		if (segment_length < 500) // Skip if the segment is too long
-			events[i++] = calculate_mean_of_filtered_segment(sig + start_idx, segment_length);
+		if (segment_length > 0 && segment_length < 500) // Skip if the segment is too long
+			events[actual_events++] = calculate_mean_of_filtered_segment(sig + start_idx, segment_length);
 		start_idx = peaks[pi];
 	}
 
-	(*n_events) = n_ev;
+	(*n_events) = actual_events;
 	return events;
 }
 
@@ -450,7 +451,7 @@ static float* detect_events_binseg(void *km, float *sig, uint32_t n, uint32_t *n
 static float* detect_events_window(void *km, float *sig, uint32_t n, uint32_t *n_events) {
     if (n < 10) { *n_events = 0; return 0; }
     uint32_t w = 20; // window size
-    float penalty = logf((float)(2 * w)); // local window penalty, not global
+    float penalty = 0.5f * logf((float)(2 * w)); // halved local window penalty for normalized signals
     uint32_t min_size = 5;
 
     double *ps = (double*)ri_kcalloc(km, n+1, sizeof(double));

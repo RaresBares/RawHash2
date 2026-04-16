@@ -121,32 +121,41 @@ def run_rawhash2(dataset_id, segmenter, threads=4):
     run_dir = os.path.join(OUTPUT_DIR, dataset_id, segmenter)
     os.makedirs(run_dir, exist_ok=True)
 
-    idx_file = os.path.join(run_dir, "index.ind")
+    # Shared index directory (same index for all segmenters)
+    shared_idx_dir = os.path.join(OUTPUT_DIR, dataset_id, "_shared_index")
+    os.makedirs(shared_idx_dir, exist_ok=True)
+    idx_file = os.path.join(shared_idx_dir, "index.ind")
     paf_file = os.path.join(run_dir, "output.paf")
 
     # Build common args
-    seg_args = f"--segmenter {segmenter}" if segmenter != "default" else ""
+    # Always use default segmenter for indexing (reference model signals are
+    # fundamentally different from real nanopore signals; alternative segmenters
+    # are designed for raw signals, not model signals)
+    seg_args_map = f"--segmenter {segmenter}" if segmenter != "default" else ""
     extra = cfg["extra"]
 
-    # Index step
-    idx_cmd = (f"{RAWHASH2} -x {cfg['preset']} -t {threads} "
-               f"-p {cfg['pore']} -d {idx_file} {extra} {seg_args} {ref_fa}")
+    # Index step (always use default segmenter, shared across all segmenters)
+    idx_time = 0
+    if not os.path.exists(idx_file) or os.path.getsize(idx_file) == 0:
+        idx_cmd = (f"{RAWHASH2} -x {cfg['preset']} -t {threads} "
+                   f"-p {cfg['pore']} -d {idx_file} {extra} {ref_fa}")
 
-    print(f"  Indexing {dataset_id} with {segmenter}...")
-    t0 = time.time()
-    idx_result = subprocess.run(idx_cmd, shell=True, capture_output=True, text=True, timeout=600)
-    idx_time = time.time() - t0
+        print(f"  Indexing {dataset_id} (shared index)...")
+        t0 = time.time()
+        idx_result = subprocess.run(idx_cmd, shell=True, capture_output=True, text=True, timeout=600)
+        idx_time = time.time() - t0
 
-    if idx_result.returncode != 0:
-        print(f"    Index FAILED: {idx_result.stderr[:200]}")
-        # Save error for debugging
-        with open(os.path.join(run_dir, "index.err"), 'w') as f:
-            f.write(idx_result.stderr)
-        return None
+        if idx_result.returncode != 0:
+            print(f"    Index FAILED: {idx_result.stderr[:200]}")
+            with open(os.path.join(run_dir, "index.err"), 'w') as f:
+                f.write(idx_result.stderr)
+            return None
+    else:
+        print(f"  Using existing shared index for {dataset_id}")
 
-    # Map step
+    # Map step (use selected segmenter)
     map_cmd = (f"{RAWHASH2} -x {cfg['preset']} -t {threads} "
-               f"-o {paf_file} {extra} {seg_args} {idx_file} {fast5_subset}")
+               f"-o {paf_file} {extra} {seg_args_map} {idx_file} {fast5_subset}")
 
     print(f"  Mapping {dataset_id} with {segmenter}...")
     t0 = time.time()
@@ -437,12 +446,12 @@ def _segment_pelt(sig, min_size=5):
         return []
 
     # Subsample very long signals for speed
-    if n > 20000:
-        ratio = n / 20000
+    if n > 50000:
+        ratio = n / 50000
         sig = sig[::int(ratio)]
         n = len(sig)
 
-    penalty = 2.0 * np.log(n)
+    penalty = np.log(n)  # BIC with k=1 for normalized signals
     ps = np.zeros(n + 1)
     pss = np.zeros(n + 1)
     for i in range(n):
