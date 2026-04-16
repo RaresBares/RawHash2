@@ -448,47 +448,43 @@ static float* detect_events_binseg(void *km, float *sig, uint32_t n, uint32_t *n
     return events;
 }
 
-static float* detect_events_window(void *km, float *sig, uint32_t n, uint32_t *n_events) {
-    if (n < 10) { *n_events = 0; return 0; }
-    uint32_t w = 20; // window size
-    float penalty = 0.5f * logf((float)(2 * w)); // halved local window penalty for normalized signals
-    uint32_t min_size = 5;
+static float* detect_events_scrappie(void *km, float *sig, uint32_t n, uint32_t *n_events) {
+    /**
+     * Scrappie-style event detection: uses the same dual-window t-statistic
+     * peak detection as the ONT default, but with Scrappie's parameters:
+     *   short window = 3, long window = 6, threshold1 = 1.4,
+     *   threshold2 = 9.0, peak_height = 0.4
+     * These shorter windows and higher thresholds produce fewer, more
+     * confident events compared to RawHash2's default (w1=8, w2=40).
+     */
+    if (n < 20) { *n_events = 0; return 0; }
 
-    double *ps = (double*)ri_kcalloc(km, n+1, sizeof(double));
-    double *pss = (double*)ri_kcalloc(km, n+1, sizeof(double));
-    for (uint32_t i = 0; i < n; i++) {
-        ps[i+1] = ps[i] + sig[i];
-        pss[i+1] = pss[i] + (double)sig[i] * sig[i];
-    }
+    // Scrappie default parameters
+    uint32_t w1 = 3, w2 = 6;
+    float t1 = 1.4f, t2 = 9.0f, ph = 0.4f;
 
-    // Compute cost reduction at each point using window
+    float *prefix_sum = (float*)ri_kcalloc(km, n+1, sizeof(float));
+    float *prefix_sum_sq = (float*)ri_kcalloc(km, n+1, sizeof(float));
+    comp_prefix_prefixsq(sig, n, prefix_sum, prefix_sum_sq);
+
+    float *tstat1 = comp_tstat(km, prefix_sum, prefix_sum_sq, n, w1);
+    float *tstat2 = comp_tstat(km, prefix_sum, prefix_sum_sq, n, w2);
+
+    ri_detect_t short_det = {.DEF_PEAK_POS = -1, .DEF_PEAK_VAL = FLT_MAX,
+        .sig = tstat1, .s_len = n, .threshold = t1,
+        .window_length = w1, .masked_to = 0, .peak_pos = -1,
+        .peak_value = FLT_MAX, .valid_peak = 0};
+    ri_detect_t long_det = {.DEF_PEAK_POS = -1, .DEF_PEAK_VAL = FLT_MAX,
+        .sig = tstat2, .s_len = n, .threshold = t2,
+        .window_length = w2, .masked_to = 0, .peak_pos = -1,
+        .peak_value = FLT_MAX, .valid_peak = 0};
+
     uint32_t *peaks = (uint32_t*)ri_kmalloc(km, n * sizeof(uint32_t));
-    uint32_t n_peaks = 0;
+    ri_detect_t *detectors[2] = {&short_det, &long_det};
+    uint32_t n_peaks = gen_peaks(detectors, 2, ph, prefix_sum, prefix_sum_sq, peaks);
 
-    for (uint32_t i = w; i <= n - w; i += min_size) {
-        uint32_t left_s = (i > w) ? i - w : 0;
-        uint32_t right_e = (i + w < n) ? i + w : n;
-
-        double total_sum = ps[right_e] - ps[left_s];
-        double total_sumsq = pss[right_e] - pss[left_s];
-        uint32_t total_len = right_e - left_s;
-        double total_cost = total_sumsq - total_sum * total_sum / total_len;
-
-        double left_sum = ps[i] - ps[left_s];
-        double left_sumsq = pss[i] - pss[left_s];
-        uint32_t left_len = i - left_s;
-        double left_cost = left_sumsq - left_sum * left_sum / left_len;
-
-        double right_sum = ps[right_e] - ps[i];
-        double right_sumsq = pss[right_e] - pss[i];
-        uint32_t right_len = right_e - i;
-        double right_cost = right_sumsq - right_sum * right_sum / right_len;
-
-        double gain = total_cost - left_cost - right_cost;
-        if (gain > penalty) peaks[n_peaks++] = i;
-    }
-
-    ri_kfree(km, ps); ri_kfree(km, pss);
+    ri_kfree(km, tstat1); ri_kfree(km, tstat2);
+    ri_kfree(km, prefix_sum); ri_kfree(km, prefix_sum_sq);
 
     float *events = 0;
     if (n_peaks > 0) events = gen_events(km, sig, peaks, n_peaks, n, n_events);
@@ -619,8 +615,8 @@ float* detect_events(void *km,
 			case RI_SEGMENTER_BINSEG:
 				events = detect_events_binseg(km, norm_signals, n_signals, n_events);
 				break;
-			case RI_SEGMENTER_WINDOW:
-				events = detect_events_window(km, norm_signals, n_signals, n_events);
+			case RI_SEGMENTER_SCRAPPIE:
+				events = detect_events_scrappie(km, norm_signals, n_signals, n_events);
 				break;
 			case RI_SEGMENTER_PYTHON:
 				events = detect_events_python(km, norm_signals, n_signals, python_script, n_events);

@@ -20,7 +20,7 @@
 #define RI_SEGMENTER_HMM        1
 #define RI_SEGMENTER_PELT       2
 #define RI_SEGMENTER_BINSEG     3
-#define RI_SEGMENTER_WINDOW     4
+#define RI_SEGMENTER_SCRAPPIE   4
 #define RI_SEGMENTER_PYTHON     5
 
 #define RI_M_SEQUENCEUNTIL	0x1

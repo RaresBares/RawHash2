@@ -430,7 +430,7 @@ int main(int argc, char *argv[])
 			else if (strcmp(o.arg, "hmm") == 0) { opt.segmenter_type = RI_SEGMENTER_HMM; ipt.segmenter_type = RI_SEGMENTER_HMM; }
 			else if (strcmp(o.arg, "pelt") == 0) { opt.segmenter_type = RI_SEGMENTER_PELT; ipt.segmenter_type = RI_SEGMENTER_PELT; }
 			else if (strcmp(o.arg, "binseg") == 0) { opt.segmenter_type = RI_SEGMENTER_BINSEG; ipt.segmenter_type = RI_SEGMENTER_BINSEG; }
-			else if (strcmp(o.arg, "window") == 0) { opt.segmenter_type = RI_SEGMENTER_WINDOW; ipt.segmenter_type = RI_SEGMENTER_WINDOW; }
+			else if (strcmp(o.arg, "scrappie") == 0) { opt.segmenter_type = RI_SEGMENTER_SCRAPPIE; ipt.segmenter_type = RI_SEGMENTER_SCRAPPIE; }
 			else if (strcmp(o.arg, "python") == 0) { opt.segmenter_type = RI_SEGMENTER_PYTHON; ipt.segmenter_type = RI_SEGMENTER_PYTHON; }
 			else { fprintf(stderr, "[ERROR] unknown segmenter '%s'\n", o.arg); return 1; }
 		}
@@ -510,7 +510,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    --seg-threshold1 FLOAT     [Advanced] Peak value threshold for the first window in segmentation [%g]\n", opt.threshold1);
 		fprintf(fp_help, "    --seg-threshold2 FLOAT     [Advanced] Peak value threshold for the first window in segmentation [%g]\n", opt.threshold2);
 		fprintf(fp_help, "    --seg-peak-height FLOAT     [Advanced] Peak height than the current signal to confirm the peak point in segmentation [%g]\n", opt.peak_height);
-		fprintf(fp_help, "    --segmenter STR     Event segmenter algorithm: 'default', 'hmm', 'pelt', 'binseg', 'window', 'python' [default]\n");
+		fprintf(fp_help, "    --segmenter STR     Event segmenter algorithm: 'default', 'hmm', 'pelt', 'binseg', 'scrappie', 'python' [default]\n");
 		fprintf(fp_help, "    --segmenter-script FILE     Path to Python script for --segmenter python []\n");
 
 		fprintf(fp_help, "\n  Sequence Until Parameters:\n");

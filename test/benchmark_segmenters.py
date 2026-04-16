@@ -46,13 +46,13 @@ DATASETS = {
     "d4_green_algae_r94":{"name": "D4: Green Algae (R9.4)", "pore": PORE_R94, "preset": "sensitive", "extra": "", "size": "large"},
 }
 
-SEGMENTERS = ["default", "hmm", "pelt", "binseg", "window"]
+SEGMENTERS = ["default", "hmm", "pelt", "binseg", "scrappie"]
 SEGMENTER_LABELS = {
     "default": "ONT t-stat (default)",
     "hmm": "HMM (Viterbi)",
     "pelt": "PELT (changepoint)",
     "binseg": "BinSeg (recursive)",
-    "window": "Window (sliding)",
+    "scrappie": "Scrappie",
 }
 
 SEGMENTER_COLORS = {
@@ -60,14 +60,13 @@ SEGMENTER_COLORS = {
     "hmm": "#ff7f0e",
     "pelt": "#2ca02c",
     "binseg": "#d62728",
-    "window": "#9467bd",
+    "scrappie": "#9467bd",
 }
 
 SEGMENTER_CATEGORIES = {
-    "Statistical (t-test)": ["default"],
+    "Statistical (t-test)": ["default", "scrappie"],
     "Probabilistic (HMM)": ["hmm"],
     "Changepoint Detection": ["pelt", "binseg"],
-    "Window-based": ["window"],
 }
 
 # =============================================================================
@@ -350,8 +349,8 @@ def python_segment_signal(sig, method="default"):
         return _segment_pelt(sig_norm)
     elif method == "binseg":
         return _segment_binseg(sig_norm)
-    elif method == "window":
-        return _segment_window(sig_norm)
+    elif method == "scrappie":
+        return _segment_tstat(sig_norm, w1=3, w2=6, t1=1.4, t2=9.0)
     return []
 
 
@@ -543,46 +542,6 @@ def _segment_binseg(sig, min_size=5, max_depth=500):
 
     recurse(0, n)
     return sorted(cps)
-
-
-def _segment_window(sig, w=20, min_size=5):
-    """Window-based segmenter."""
-    n = len(sig)
-    if n < 2 * w:
-        return []
-
-    penalty = np.log(2.0 * w)  # local window penalty
-    ps = np.zeros(n + 1)
-    pss = np.zeros(n + 1)
-    for i in range(n):
-        ps[i+1] = ps[i] + sig[i]
-        pss[i+1] = pss[i] + sig[i]**2
-
-    breakpoints = []
-    for i in range(w, n - w, min_size):
-        left_s = max(0, i - w)
-        right_e = min(n, i + w)
-
-        total_sum = ps[right_e] - ps[left_s]
-        total_sumsq = pss[right_e] - pss[left_s]
-        total_len = right_e - left_s
-        total_cost = total_sumsq - total_sum**2 / total_len
-
-        left_sum = ps[i] - ps[left_s]
-        left_sumsq = pss[i] - pss[left_s]
-        left_len = i - left_s
-        left_cost = left_sumsq - left_sum**2 / left_len
-
-        right_sum = ps[right_e] - ps[i]
-        right_sumsq = pss[right_e] - pss[i]
-        right_len = right_e - i
-        right_cost = right_sumsq - right_sum**2 / right_len
-
-        gain = total_cost - left_cost - right_cost
-        if gain > penalty:
-            breakpoints.append(i)
-
-    return breakpoints
 
 
 # =============================================================================
