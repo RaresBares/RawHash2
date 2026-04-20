@@ -419,7 +419,7 @@ static void binseg_recursive(float *sig, uint32_t start, uint32_t end,
 
 static float* detect_events_binseg(void *km, float *sig, uint32_t n, uint32_t *n_events) {
     if (n < 10) { *n_events = 0; return 0; }
-    float penalty = logf((float)n); // BIC with k=1 (mean only, normalized signals)
+    float penalty = 2.0f * logf((float)n); // Match PELT's stronger regularization (was logf(n) — over-split)
     uint32_t min_size = 5;
     uint32_t max_cp = n / min_size;
 

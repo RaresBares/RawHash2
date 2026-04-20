@@ -1,0 +1,735 @@
+{
+  "benchmark": "rawhash2_segmenter_comparison",
+  "datasets": {
+    "D1": {
+      "name": "D1: SARS-CoV-2 (R9.4)",
+      "n_reads": 1,
+      "segmenters": {
+        "default": {
+          "mapping_stats": {
+            "total_mappings": 91,
+            "unique_reads": 91,
+            "mapq_ge_1": 91,
+            "mapq_ge_10": 90,
+            "mapq_ge_30": 82,
+            "mapq_ge_60": 69,
+            "mean_mapq": 53.23,
+            "median_mapq": 60,
+            "mean_alignment_block_len": 321.7,
+            "mean_residue_matches": 336.4
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.05,
+            "user_time_sec": 0.09,
+            "sys_time_sec": 0.0,
+            "max_rss_mb": 19.7
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.01,
+            "user_time_sec": 0.0,
+            "sys_time_sec": 0.0,
+            "max_rss_mb": 10.7
+          },
+          "index_size_bytes": 749270,
+          "throughput_reads_per_sec": 20.0
+        },
+        "hmm": {
+          "mapping_stats": {
+            "total_mappings": 73,
+            "unique_reads": 73,
+            "mapq_ge_1": 73,
+            "mapq_ge_10": 69,
+            "mapq_ge_30": 40,
+            "mapq_ge_60": 13,
+            "mean_mapq": 35.05,
+            "median_mapq": 32,
+            "mean_alignment_block_len": 326.8,
+            "mean_residue_matches": 364.5
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.09,
+            "user_time_sec": 0.15,
+            "sys_time_sec": 0.02,
+            "max_rss_mb": 20.8
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.01,
+            "user_time_sec": 0.01,
+            "sys_time_sec": 0.0,
+            "max_rss_mb": 10.8
+          },
+          "index_size_bytes": 749270,
+          "throughput_reads_per_sec": 11.11
+        },
+        "pelt": {
+          "mapping_stats": {
+            "total_mappings": 91,
+            "unique_reads": 91,
+            "mapq_ge_1": 91,
+            "mapq_ge_10": 90,
+            "mapq_ge_30": 82,
+            "mapq_ge_60": 69,
+            "mean_mapq": 53.23,
+            "median_mapq": 60,
+            "mean_alignment_block_len": 321.7,
+            "mean_residue_matches": 336.4
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.05,
+            "user_time_sec": 0.09,
+            "sys_time_sec": 0.01,
+            "max_rss_mb": 19.6
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.01,
+            "user_time_sec": 0.0,
+            "sys_time_sec": 0.0,
+            "max_rss_mb": 10.4
+          },
+          "index_size_bytes": 749270,
+          "throughput_reads_per_sec": 20.0
+        },
+        "binseg": {
+          "mapping_stats": {
+            "total_mappings": 3,
+            "unique_reads": 3,
+            "mapq_ge_1": 3,
+            "mapq_ge_10": 1,
+            "mapq_ge_30": 0,
+            "mapq_ge_60": 0,
+            "mean_mapq": 5.33,
+            "median_mapq": 3,
+            "mean_alignment_block_len": 19.0,
+            "mean_residue_matches": 88.3
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.04,
+            "user_time_sec": 0.06,
+            "sys_time_sec": 0.0,
+            "max_rss_mb": 19.0
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.01,
+            "user_time_sec": 0.01,
+            "sys_time_sec": 0.0,
+            "max_rss_mb": 10.7
+          },
+          "index_size_bytes": 749270,
+          "throughput_reads_per_sec": 25.0
+        },
+        "scrappie": {
+          "mapping_stats": {
+            "total_mappings": 81,
+            "unique_reads": 81,
+            "mapq_ge_1": 81,
+            "mapq_ge_10": 76,
+            "mapq_ge_30": 64,
+            "mapq_ge_60": 43,
+            "mean_mapq": 46.88,
+            "median_mapq": 60,
+            "mean_alignment_block_len": 341.2,
+            "mean_residue_matches": 310.6
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.05,
+            "user_time_sec": 0.09,
+            "sys_time_sec": 0.01,
+            "max_rss_mb": 20.0
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.01,
+            "user_time_sec": 0.01,
+            "sys_time_sec": 0.0,
+            "max_rss_mb": 10.7
+          },
+          "index_size_bytes": 749270,
+          "throughput_reads_per_sec": 20.0
+        }
+      }
+    },
+    "D2": {
+      "name": "D2: E. coli (R9.4)",
+      "n_reads": 1,
+      "segmenters": {
+        "default": {
+          "mapping_stats": {
+            "total_mappings": 95,
+            "unique_reads": 95,
+            "mapq_ge_1": 95,
+            "mapq_ge_10": 94,
+            "mapq_ge_30": 67,
+            "mapq_ge_60": 33,
+            "mean_mapq": 43.57,
+            "median_mapq": 50,
+            "mean_alignment_block_len": 406.1,
+            "mean_residue_matches": 460.2
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.26,
+            "user_time_sec": 0.3,
+            "sys_time_sec": 0.08,
+            "max_rss_mb": 133.7
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.66,
+            "user_time_sec": 1.03,
+            "sys_time_sec": 0.2,
+            "max_rss_mb": 386.5
+          },
+          "index_size_bytes": 76058909,
+          "throughput_reads_per_sec": 3.85
+        },
+        "hmm": {
+          "mapping_stats": {
+            "total_mappings": 83,
+            "unique_reads": 83,
+            "mapq_ge_1": 83,
+            "mapq_ge_10": 79,
+            "mapq_ge_30": 37,
+            "mapq_ge_60": 9,
+            "mean_mapq": 29.98,
+            "median_mapq": 23,
+            "mean_alignment_block_len": 740.5,
+            "mean_residue_matches": 862.7
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.48,
+            "user_time_sec": 0.71,
+            "sys_time_sec": 0.08,
+            "max_rss_mb": 139.1
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.65,
+            "user_time_sec": 1.0,
+            "sys_time_sec": 0.24,
+            "max_rss_mb": 382.4
+          },
+          "index_size_bytes": 76058909,
+          "throughput_reads_per_sec": 2.08
+        },
+        "pelt": {
+          "mapping_stats": {
+            "total_mappings": 95,
+            "unique_reads": 95,
+            "mapq_ge_1": 95,
+            "mapq_ge_10": 94,
+            "mapq_ge_30": 67,
+            "mapq_ge_60": 33,
+            "mean_mapq": 43.57,
+            "median_mapq": 50,
+            "mean_alignment_block_len": 406.1,
+            "mean_residue_matches": 460.2
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.27,
+            "user_time_sec": 0.31,
+            "sys_time_sec": 0.07,
+            "max_rss_mb": 133.7
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.67,
+            "user_time_sec": 1.01,
+            "sys_time_sec": 0.23,
+            "max_rss_mb": 380.4
+          },
+          "index_size_bytes": 76058909,
+          "throughput_reads_per_sec": 3.7
+        },
+        "binseg": {
+          "mapping_stats": {
+            "total_mappings": 13,
+            "unique_reads": 13,
+            "mapq_ge_1": 13,
+            "mapq_ge_10": 0,
+            "mapq_ge_30": 0,
+            "mapq_ge_60": 0,
+            "mean_mapq": 5.46,
+            "median_mapq": 5,
+            "mean_alignment_block_len": 244.5,
+            "mean_residue_matches": 1153.6
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.28,
+            "user_time_sec": 0.38,
+            "sys_time_sec": 0.07,
+            "max_rss_mb": 130.8
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.65,
+            "user_time_sec": 1.04,
+            "sys_time_sec": 0.2,
+            "max_rss_mb": 377.6
+          },
+          "index_size_bytes": 76058909,
+          "throughput_reads_per_sec": 3.57
+        },
+        "scrappie": {
+          "mapping_stats": {
+            "total_mappings": 93,
+            "unique_reads": 93,
+            "mapq_ge_1": 92,
+            "mapq_ge_10": 88,
+            "mapq_ge_30": 41,
+            "mapq_ge_60": 10,
+            "mean_mapq": 29.51,
+            "median_mapq": 25,
+            "mean_alignment_block_len": 556.4,
+            "mean_residue_matches": 565.6
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.32,
+            "user_time_sec": 0.45,
+            "sys_time_sec": 0.09,
+            "max_rss_mb": 137.2
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.68,
+            "user_time_sec": 1.04,
+            "sys_time_sec": 0.21,
+            "max_rss_mb": 386.2
+          },
+          "index_size_bytes": 76058909,
+          "throughput_reads_per_sec": 3.12
+        }
+      }
+    },
+    "D3": {
+      "name": "D3: Yeast (R9.4)",
+      "n_reads": 100,
+      "segmenters": {
+        "default": {
+          "mapping_stats": {
+            "total_mappings": 57,
+            "unique_reads": 57,
+            "mapq_ge_1": 56,
+            "mapq_ge_10": 54,
+            "mapq_ge_30": 23,
+            "mapq_ge_60": 7,
+            "mean_mapq": 30.05,
+            "median_mapq": 23,
+            "mean_alignment_block_len": 666.1,
+            "mean_residue_matches": 680.2
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.54,
+            "user_time_sec": 0.71,
+            "sys_time_sec": 0.19,
+            "max_rss_mb": 222.5
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 1.48,
+            "user_time_sec": 2.17,
+            "sys_time_sec": 0.59,
+            "max_rss_mb": 865.6
+          },
+          "index_size_bytes": 165903277,
+          "throughput_reads_per_sec": 185.19
+        },
+        "hmm": {
+          "mapping_stats": {
+            "total_mappings": 16,
+            "unique_reads": 16,
+            "mapq_ge_1": 16,
+            "mapq_ge_10": 10,
+            "mapq_ge_30": 1,
+            "mapq_ge_60": 0,
+            "mean_mapq": 14.06,
+            "median_mapq": 11,
+            "mean_alignment_block_len": 1307.1,
+            "mean_residue_matches": 1374.2
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.7,
+            "user_time_sec": 1.4,
+            "sys_time_sec": 0.26,
+            "max_rss_mb": 231.8
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 1.47,
+            "user_time_sec": 2.19,
+            "sys_time_sec": 0.57,
+            "max_rss_mb": 865.6
+          },
+          "index_size_bytes": 165903277,
+          "throughput_reads_per_sec": 142.86
+        },
+        "pelt": {
+          "mapping_stats": {
+            "total_mappings": 57,
+            "unique_reads": 57,
+            "mapq_ge_1": 56,
+            "mapq_ge_10": 54,
+            "mapq_ge_30": 23,
+            "mapq_ge_60": 7,
+            "mean_mapq": 30.05,
+            "median_mapq": 23,
+            "mean_alignment_block_len": 666.1,
+            "mean_residue_matches": 680.2
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.57,
+            "user_time_sec": 0.71,
+            "sys_time_sec": 0.19,
+            "max_rss_mb": 221.8
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 1.46,
+            "user_time_sec": 2.16,
+            "sys_time_sec": 0.6,
+            "max_rss_mb": 865.7
+          },
+          "index_size_bytes": 165903277,
+          "throughput_reads_per_sec": 175.44
+        },
+        "binseg": {
+          "mapping_stats": {
+            "total_mappings": 4,
+            "unique_reads": 4,
+            "mapq_ge_1": 4,
+            "mapq_ge_10": 1,
+            "mapq_ge_30": 0,
+            "mapq_ge_60": 0,
+            "mean_mapq": 7.25,
+            "median_mapq": 6,
+            "mean_alignment_block_len": 82.5,
+            "mean_residue_matches": 423.8
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.46,
+            "user_time_sec": 0.26,
+            "sys_time_sec": 0.15,
+            "max_rss_mb": 208.9
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 1.48,
+            "user_time_sec": 2.14,
+            "sys_time_sec": 0.62,
+            "max_rss_mb": 865.7
+          },
+          "index_size_bytes": 165903277,
+          "throughput_reads_per_sec": 217.39
+        },
+        "scrappie": {
+          "mapping_stats": {
+            "total_mappings": 28,
+            "unique_reads": 28,
+            "mapq_ge_1": 28,
+            "mapq_ge_10": 20,
+            "mapq_ge_30": 2,
+            "mapq_ge_60": 0,
+            "mean_mapq": 15.82,
+            "median_mapq": 13,
+            "mean_alignment_block_len": 870.1,
+            "mean_residue_matches": 690.9
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.62,
+            "user_time_sec": 1.06,
+            "sys_time_sec": 0.19,
+            "max_rss_mb": 226.3
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 1.47,
+            "user_time_sec": 2.15,
+            "sys_time_sec": 0.61,
+            "max_rss_mb": 865.6
+          },
+          "index_size_bytes": 165903277,
+          "throughput_reads_per_sec": 161.29
+        }
+      }
+    },
+    "D4": {
+      "name": "D4: Green Algae (R9.4)",
+      "n_reads": 100,
+      "segmenters": {
+        "default": {
+          "mapping_stats": {
+            "total_mappings": 92,
+            "unique_reads": 92,
+            "mapq_ge_1": 92,
+            "mapq_ge_10": 89,
+            "mapq_ge_30": 48,
+            "mapq_ge_60": 10,
+            "mean_mapq": 32.77,
+            "median_mapq": 30,
+            "mean_alignment_block_len": 985.9,
+            "mean_residue_matches": 901.9
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 4.95,
+            "user_time_sec": 10.68,
+            "sys_time_sec": 1.93,
+            "max_rss_mb": 1803.2
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 12.9,
+            "user_time_sec": 15.44,
+            "sys_time_sec": 4.97,
+            "max_rss_mb": 5326.9
+          },
+          "index_size_bytes": 1418063402,
+          "throughput_reads_per_sec": 20.2
+        },
+        "hmm": {
+          "mapping_stats": {
+            "total_mappings": 49,
+            "unique_reads": 49,
+            "mapq_ge_1": 48,
+            "mapq_ge_10": 40,
+            "mapq_ge_30": 15,
+            "mapq_ge_60": 0,
+            "mean_mapq": 23.49,
+            "median_mapq": 16,
+            "mean_alignment_block_len": 1594.9,
+            "mean_residue_matches": 1599.0
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 9.34,
+            "user_time_sec": 37.65,
+            "sys_time_sec": 3.36,
+            "max_rss_mb": 1912.5
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 9.8,
+            "user_time_sec": 15.33,
+            "sys_time_sec": 4.96,
+            "max_rss_mb": 5340.4
+          },
+          "index_size_bytes": 1418063402,
+          "throughput_reads_per_sec": 10.71
+        },
+        "pelt": {
+          "mapping_stats": {
+            "total_mappings": 92,
+            "unique_reads": 92,
+            "mapq_ge_1": 92,
+            "mapq_ge_10": 89,
+            "mapq_ge_30": 48,
+            "mapq_ge_60": 10,
+            "mean_mapq": 32.77,
+            "median_mapq": 30,
+            "mean_alignment_block_len": 985.9,
+            "mean_residue_matches": 901.9
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 4.79,
+            "user_time_sec": 10.69,
+            "sys_time_sec": 1.78,
+            "max_rss_mb": 1794.0
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 9.6,
+            "user_time_sec": 15.22,
+            "sys_time_sec": 4.93,
+            "max_rss_mb": 5345.9
+          },
+          "index_size_bytes": 1418063402,
+          "throughput_reads_per_sec": 20.88
+        },
+        "binseg": {
+          "mapping_stats": {
+            "total_mappings": 4,
+            "unique_reads": 4,
+            "mapq_ge_1": 4,
+            "mapq_ge_10": 2,
+            "mapq_ge_30": 0,
+            "mapq_ge_60": 0,
+            "mean_mapq": 9.5,
+            "median_mapq": 12,
+            "mean_alignment_block_len": 285.2,
+            "mean_residue_matches": 1345.5
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 3.38,
+            "user_time_sec": 1.9,
+            "sys_time_sec": 1.01,
+            "max_rss_mb": 1540.2
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 9.13,
+            "user_time_sec": 15.49,
+            "sys_time_sec": 4.1,
+            "max_rss_mb": 5371.6
+          },
+          "index_size_bytes": 1418063402,
+          "throughput_reads_per_sec": 29.59
+        },
+        "scrappie": {
+          "mapping_stats": {
+            "total_mappings": 75,
+            "unique_reads": 75,
+            "mapq_ge_1": 74,
+            "mapq_ge_10": 60,
+            "mapq_ge_30": 25,
+            "mapq_ge_60": 0,
+            "mean_mapq": 23.31,
+            "median_mapq": 20,
+            "mean_alignment_block_len": 1484.6,
+            "mean_residue_matches": 1137.8
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 7.14,
+            "user_time_sec": 26.51,
+            "sys_time_sec": 2.52,
+            "max_rss_mb": 1929.1
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 9.34,
+            "user_time_sec": 15.61,
+            "sys_time_sec": 4.18,
+            "max_rss_mb": 5362.7
+          },
+          "index_size_bytes": 1418063402,
+          "throughput_reads_per_sec": 14.01
+        }
+      }
+    },
+    "D6": {
+      "name": "D6: E. coli (R10.4)",
+      "n_reads": 1,
+      "segmenters": {
+        "default": {
+          "mapping_stats": {
+            "total_mappings": 75,
+            "unique_reads": 75,
+            "mapq_ge_1": 75,
+            "mapq_ge_10": 69,
+            "mapq_ge_30": 43,
+            "mapq_ge_60": 14,
+            "mean_mapq": 34.57,
+            "median_mapq": 32,
+            "mean_alignment_block_len": 488.7,
+            "mean_residue_matches": 616.7
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.34,
+            "user_time_sec": 0.71,
+            "sys_time_sec": 0.13,
+            "max_rss_mb": 138.9
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.72,
+            "user_time_sec": 0.98,
+            "sys_time_sec": 0.26,
+            "max_rss_mb": 355.8
+          },
+          "index_size_bytes": 75732173,
+          "throughput_reads_per_sec": 2.94
+        },
+        "hmm": {
+          "mapping_stats": {
+            "total_mappings": 27,
+            "unique_reads": 27,
+            "mapq_ge_1": 27,
+            "mapq_ge_10": 18,
+            "mapq_ge_30": 4,
+            "mapq_ge_60": 0,
+            "mean_mapq": 16.04,
+            "median_mapq": 13,
+            "mean_alignment_block_len": 954.7,
+            "mean_residue_matches": 1347.9
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.57,
+            "user_time_sec": 2.16,
+            "sys_time_sec": 0.15,
+            "max_rss_mb": 153.7
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.7,
+            "user_time_sec": 1.04,
+            "sys_time_sec": 0.2,
+            "max_rss_mb": 355.6
+          },
+          "index_size_bytes": 75732173,
+          "throughput_reads_per_sec": 1.75
+        },
+        "pelt": {
+          "mapping_stats": {
+            "total_mappings": 75,
+            "unique_reads": 75,
+            "mapq_ge_1": 75,
+            "mapq_ge_10": 69,
+            "mapq_ge_30": 43,
+            "mapq_ge_60": 14,
+            "mean_mapq": 34.57,
+            "median_mapq": 32,
+            "mean_alignment_block_len": 488.7,
+            "mean_residue_matches": 616.7
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.34,
+            "user_time_sec": 0.74,
+            "sys_time_sec": 0.1,
+            "max_rss_mb": 139.4
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.7,
+            "user_time_sec": 1.02,
+            "sys_time_sec": 0.21,
+            "max_rss_mb": 355.7
+          },
+          "index_size_bytes": 75732173,
+          "throughput_reads_per_sec": 2.94
+        },
+        "binseg": {
+          "mapping_stats": {
+            "total_mappings": 11,
+            "unique_reads": 11,
+            "mapq_ge_1": 11,
+            "mapq_ge_10": 6,
+            "mapq_ge_30": 0,
+            "mapq_ge_60": 0,
+            "mean_mapq": 11.27,
+            "median_mapq": 13,
+            "mean_alignment_block_len": 319.1,
+            "mean_residue_matches": 1390.5
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.3,
+            "user_time_sec": 0.58,
+            "sys_time_sec": 0.12,
+            "max_rss_mb": 130.0
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.7,
+            "user_time_sec": 1.03,
+            "sys_time_sec": 0.2,
+            "max_rss_mb": 354.3
+          },
+          "index_size_bytes": 75732173,
+          "throughput_reads_per_sec": 3.33
+        },
+        "scrappie": {
+          "mapping_stats": {
+            "total_mappings": 20,
+            "unique_reads": 20,
+            "mapq_ge_1": 20,
+            "mapq_ge_10": 9,
+            "mapq_ge_30": 0,
+            "mapq_ge_60": 0,
+            "mean_mapq": 9.05,
+            "median_mapq": 9,
+            "mean_alignment_block_len": 2195.9,
+            "mean_residue_matches": 931.1
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 0.54,
+            "user_time_sec": 2.02,
+            "sys_time_sec": 0.22,
+            "max_rss_mb": 163.0
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.71,
+            "user_time_sec": 1.03,
+            "sys_time_sec": 0.2,
+            "max_rss_mb": 355.9
+          },
+          "index_size_bytes": 75732173,
+          "throughput_reads_per_sec": 1.85
+        }
+      }
+    }
+  }
+}
