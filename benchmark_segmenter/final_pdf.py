@@ -265,11 +265,12 @@ with PdfPages(OUT_PDF) as pdf:
                     "  • default/pelt produce identical mapping statistics as on D1.\n"
                     "  • binseg pattern holds: very few mappings.")
         elif ds_key == 'D3':
-            note = ("Observations (D3 Yeast, caveat):\n"
-                    "  • The first 100 FAST5 files in this dataset are MUX-scan\n"
-                    "    calibration reads (device burn-in), not real sequencing reads.\n"
-                    "  • They have no true mapping in minimap2 — so F1 metrics here\n"
-                    "    are NOT meaningful. Mapping counts still reflect segmenter behavior.")
+            note = ("Observations (D3 Yeast):\n"
+                    "  • Initial subset was MUX-scan calibration reads (now FIXED).\n"
+                    "  • Now using first 100 real sequencing_run reads; basecalled\n"
+                    "    reads extracted directly from FAST5 internal fastq.\n"
+                    "  • default/pelt: F1 ≈ 0.96 — as good as on D1.\n"
+                    "  • Multi-chromosome (16) but results stay high for default/pelt.")
         elif ds_key == 'D4':
             note = ("Observations (D4 Green Algae):\n"
                     "  • Multi-chromosome genome (~17 chroms, 111 Mb) — harder than D1/D2.\n"
