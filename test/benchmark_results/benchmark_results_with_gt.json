@@ -1,0 +1,767 @@
+{
+  "benchmark": "rh2_seg_with_gt",
+  "datasets": {
+    "D1": {
+      "name": "D1: SARS-CoV-2 (R9.4)",
+      "n_reads": 1383,
+      "n_truth_mappings": 1383448,
+      "has_ground_truth": true,
+      "segmenters": {
+        "default": {
+          "mapping_stats": {
+            "total_mappings": 1325497,
+            "unique_reads": 1325497,
+            "mapq_ge_1": 1325497,
+            "mapq_ge_10": 1299666,
+            "mapq_ge_30": 1162392,
+            "mapq_ge_60": 915085,
+            "mean_mapq": 51.99,
+            "median_mapq": 60,
+            "mean_alignment_block_len": 300.9,
+            "mean_residue_matches": 358.1
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 813.41,
+            "user_time_sec": 1289.95,
+            "sys_time_sec": 106.63,
+            "max_rss_mb": 4681.1
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.08,
+            "user_time_sec": 0.0,
+            "sys_time_sec": 0.01,
+            "max_rss_mb": 10.5
+          },
+          "index_size_bytes": 749270,
+          "throughput_reads_per_sec": 1.7,
+          "ground_truth_accuracy": {
+            "n_truth_reads": 1381999,
+            "n_query_reads": 1325497,
+            "n_both_mapped": 1325483,
+            "TP": 1310700,
+            "FP": 14797,
+            "FN": 71299,
+            "correct_position": 1310700,
+            "wrong_position": 14783,
+            "precision": 0.9888,
+            "recall": 0.9484,
+            "f1": 0.9682,
+            "mean_mapq_correct": 52.46,
+            "mean_mapq_wrong": 9.86,
+            "overlap_threshold": 0.1
+          }
+        },
+        "hmm": {
+          "mapping_stats": {
+            "total_mappings": 1019003,
+            "unique_reads": 1019003,
+            "mapq_ge_1": 1019000,
+            "mapq_ge_10": 916211,
+            "mapq_ge_30": 533211,
+            "mapq_ge_60": 167943,
+            "mean_mapq": 33.06,
+            "median_mapq": 31,
+            "mean_alignment_block_len": 295.3,
+            "mean_residue_matches": 410.0
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 620.76,
+            "user_time_sec": 2469.68,
+            "sys_time_sec": 125.03,
+            "max_rss_mb": 4700.1
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.07,
+            "user_time_sec": 0.0,
+            "sys_time_sec": 0.0,
+            "max_rss_mb": 10.9
+          },
+          "index_size_bytes": 749270,
+          "throughput_reads_per_sec": 2.23,
+          "ground_truth_accuracy": {
+            "n_truth_reads": 1381999,
+            "n_query_reads": 1019000,
+            "n_both_mapped": 1018991,
+            "TP": 963384,
+            "FP": 55616,
+            "FN": 418615,
+            "correct_position": 963384,
+            "wrong_position": 55607,
+            "precision": 0.9454,
+            "recall": 0.6971,
+            "f1": 0.8025,
+            "mean_mapq_correct": 34.43,
+            "mean_mapq_wrong": 9.33,
+            "overlap_threshold": 0.1
+          }
+        },
+        "pelt": {
+          "mapping_stats": {
+            "total_mappings": 1325497,
+            "unique_reads": 1325497,
+            "mapq_ge_1": 1325497,
+            "mapq_ge_10": 1299666,
+            "mapq_ge_30": 1162392,
+            "mapq_ge_60": 915085,
+            "mean_mapq": 51.99,
+            "median_mapq": 60,
+            "mean_alignment_block_len": 300.9,
+            "mean_residue_matches": 358.1
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 582.15,
+            "user_time_sec": 1357.75,
+            "sys_time_sec": 112.34,
+            "max_rss_mb": 4697.4
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.05,
+            "user_time_sec": 0.0,
+            "sys_time_sec": 0.0,
+            "max_rss_mb": 10.6
+          },
+          "index_size_bytes": 749270,
+          "throughput_reads_per_sec": 2.38,
+          "ground_truth_accuracy": {
+            "n_truth_reads": 1381999,
+            "n_query_reads": 1325497,
+            "n_both_mapped": 1325483,
+            "TP": 1310700,
+            "FP": 14797,
+            "FN": 71299,
+            "correct_position": 1310700,
+            "wrong_position": 14783,
+            "precision": 0.9888,
+            "recall": 0.9484,
+            "f1": 0.9682,
+            "mean_mapq_correct": 52.46,
+            "mean_mapq_wrong": 9.86,
+            "overlap_threshold": 0.1
+          }
+        },
+        "binseg": {
+          "mapping_stats": {
+            "total_mappings": 55180,
+            "unique_reads": 55180,
+            "mapq_ge_1": 55180,
+            "mapq_ge_10": 11636,
+            "mapq_ge_30": 328,
+            "mapq_ge_60": 236,
+            "mean_mapq": 6.94,
+            "median_mapq": 5,
+            "mean_alignment_block_len": 58.8,
+            "mean_residue_matches": 263.1
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 562.28,
+            "user_time_sec": 930.24,
+            "sys_time_sec": 84.46,
+            "max_rss_mb": 4665.2
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.08,
+            "user_time_sec": 0.0,
+            "sys_time_sec": 0.0,
+            "max_rss_mb": 10.6
+          },
+          "index_size_bytes": 749270,
+          "throughput_reads_per_sec": 2.46,
+          "ground_truth_accuracy": {
+            "n_truth_reads": 1381999,
+            "n_query_reads": 55180,
+            "n_both_mapped": 55179,
+            "TP": 1189,
+            "FP": 53991,
+            "FN": 1380810,
+            "correct_position": 1189,
+            "wrong_position": 53990,
+            "precision": 0.0215,
+            "recall": 0.0009,
+            "f1": 0.0017,
+            "mean_mapq_correct": 21.27,
+            "mean_mapq_wrong": 6.63,
+            "overlap_threshold": 0.1
+          }
+        },
+        "scrappie": {
+          "mapping_stats": {
+            "total_mappings": 1163486,
+            "unique_reads": 1163486,
+            "mapq_ge_1": 1163486,
+            "mapq_ge_10": 1049595,
+            "mapq_ge_30": 711564,
+            "mapq_ge_60": 375785,
+            "mean_mapq": 38.02,
+            "median_mapq": 40,
+            "mean_alignment_block_len": 337.2,
+            "mean_residue_matches": 344.8
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 583.64,
+            "user_time_sec": 1420.01,
+            "sys_time_sec": 125.75,
+            "max_rss_mb": 4691.4
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.05,
+            "user_time_sec": 0.0,
+            "sys_time_sec": 0.01,
+            "max_rss_mb": 10.9
+          },
+          "index_size_bytes": 749270,
+          "throughput_reads_per_sec": 2.37,
+          "ground_truth_accuracy": {
+            "n_truth_reads": 1381999,
+            "n_query_reads": 1163486,
+            "n_both_mapped": 1163478,
+            "TP": 1078407,
+            "FP": 85079,
+            "FN": 303592,
+            "correct_position": 1078407,
+            "wrong_position": 85071,
+            "precision": 0.9269,
+            "recall": 0.7803,
+            "f1": 0.8473,
+            "mean_mapq_correct": 40.26,
+            "mean_mapq_wrong": 9.62,
+            "overlap_threshold": 0.1
+          }
+        }
+      }
+    },
+    "D2": {
+      "name": "D2: E. coli (R9.4)",
+      "n_reads": 89,
+      "n_truth_mappings": 0,
+      "has_ground_truth": false,
+      "segmenters": {
+        "default": {
+          "mapping_stats": {
+            "total_mappings": 336854,
+            "unique_reads": 336854,
+            "mapq_ge_1": 334689,
+            "mapq_ge_10": 328820,
+            "mapq_ge_30": 216963,
+            "mapq_ge_60": 97341,
+            "mean_mapq": 39.49,
+            "median_mapq": 40,
+            "mean_alignment_block_len": 397.3,
+            "mean_residue_matches": 526.6
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 580.99,
+            "user_time_sec": 1012.66,
+            "sys_time_sec": 104.58,
+            "max_rss_mb": 3983.0
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.73,
+            "user_time_sec": 1.02,
+            "sys_time_sec": 0.21,
+            "max_rss_mb": 386.3
+          },
+          "index_size_bytes": 76058909,
+          "throughput_reads_per_sec": 0.15,
+          "ground_truth_accuracy": {}
+        },
+        "hmm": {
+          "mapping_stats": {
+            "total_mappings": 307257,
+            "unique_reads": 307257,
+            "mapq_ge_1": 306536,
+            "mapq_ge_10": 293519,
+            "mapq_ge_30": 131541,
+            "mapq_ge_60": 24076,
+            "mean_mapq": 29.71,
+            "median_mapq": 26,
+            "mean_alignment_block_len": 703.6,
+            "mean_residue_matches": 940.9
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 384.7,
+            "user_time_sec": 2735.19,
+            "sys_time_sec": 174.66,
+            "max_rss_mb": 4075.6
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.69,
+            "user_time_sec": 1.02,
+            "sys_time_sec": 0.21,
+            "max_rss_mb": 386.3
+          },
+          "index_size_bytes": 76058909,
+          "throughput_reads_per_sec": 0.23,
+          "ground_truth_accuracy": {}
+        },
+        "pelt": {
+          "mapping_stats": {
+            "total_mappings": 336854,
+            "unique_reads": 336854,
+            "mapq_ge_1": 334689,
+            "mapq_ge_10": 328820,
+            "mapq_ge_30": 216963,
+            "mapq_ge_60": 97341,
+            "mean_mapq": 39.49,
+            "median_mapq": 40,
+            "mean_alignment_block_len": 397.3,
+            "mean_residue_matches": 526.6
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 282.36,
+            "user_time_sec": 1067.14,
+            "sys_time_sec": 103.2,
+            "max_rss_mb": 4031.7
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.71,
+            "user_time_sec": 1.03,
+            "sys_time_sec": 0.2,
+            "max_rss_mb": 386.2
+          },
+          "index_size_bytes": 76058909,
+          "throughput_reads_per_sec": 0.32,
+          "ground_truth_accuracy": {}
+        },
+        "binseg": {
+          "mapping_stats": {
+            "total_mappings": 43191,
+            "unique_reads": 43191,
+            "mapq_ge_1": 43191,
+            "mapq_ge_10": 14176,
+            "mapq_ge_30": 83,
+            "mapq_ge_60": 2,
+            "mean_mapq": 8.23,
+            "median_mapq": 7,
+            "mean_alignment_block_len": 294.8,
+            "mean_residue_matches": 1373.3
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 307.49,
+            "user_time_sec": 1574.48,
+            "sys_time_sec": 74.21,
+            "max_rss_mb": 4035.8
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.67,
+            "user_time_sec": 0.98,
+            "sys_time_sec": 0.25,
+            "max_rss_mb": 386.6
+          },
+          "index_size_bytes": 76058909,
+          "throughput_reads_per_sec": 0.29,
+          "ground_truth_accuracy": {}
+        },
+        "scrappie": {
+          "mapping_stats": {
+            "total_mappings": 266475,
+            "unique_reads": 266475,
+            "mapq_ge_1": 266107,
+            "mapq_ge_10": 245694,
+            "mapq_ge_30": 95894,
+            "mapq_ge_60": 17811,
+            "mean_mapq": 27.2,
+            "median_mapq": 23,
+            "mean_alignment_block_len": 686.6,
+            "mean_residue_matches": 685.6
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 406.53,
+            "user_time_sec": 2659.72,
+            "sys_time_sec": 187.97,
+            "max_rss_mb": 4068.4
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.69,
+            "user_time_sec": 1.04,
+            "sys_time_sec": 0.2,
+            "max_rss_mb": 386.3
+          },
+          "index_size_bytes": 76058909,
+          "throughput_reads_per_sec": 0.22,
+          "ground_truth_accuracy": {}
+        }
+      }
+    },
+    "D3": {
+      "name": "D3: Yeast (R9.4)",
+      "n_reads": 500,
+      "n_truth_mappings": 49075,
+      "has_ground_truth": true,
+      "segmenters": {
+        "default": {
+          "mapping_stats": {
+            "total_mappings": 275,
+            "unique_reads": 275,
+            "mapq_ge_1": 266,
+            "mapq_ge_10": 246,
+            "mapq_ge_30": 132,
+            "mapq_ge_60": 43,
+            "mean_mapq": 31.56,
+            "median_mapq": 28,
+            "mean_alignment_block_len": 655.2,
+            "mean_residue_matches": 659.8
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 4.65,
+            "user_time_sec": 7.2,
+            "sys_time_sec": 0.86,
+            "max_rss_mb": 277.1
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 4.54,
+            "user_time_sec": 4.49,
+            "sys_time_sec": 1.03,
+            "max_rss_mb": 857.5
+          },
+          "index_size_bytes": 165903277,
+          "throughput_reads_per_sec": 107.53,
+          "ground_truth_accuracy": {
+            "n_truth_reads": 45849,
+            "n_query_reads": 266,
+            "n_both_mapped": 22,
+            "TP": 5,
+            "FP": 261,
+            "FN": 45844,
+            "correct_position": 5,
+            "wrong_position": 17,
+            "precision": 0.0188,
+            "recall": 0.0001,
+            "f1": 0.0002,
+            "mean_mapq_correct": 42.8,
+            "mean_mapq_wrong": 33.29,
+            "overlap_threshold": 0.1
+          }
+        },
+        "hmm": {
+          "mapping_stats": {
+            "total_mappings": 131,
+            "unique_reads": 131,
+            "mapq_ge_1": 131,
+            "mapq_ge_10": 107,
+            "mapq_ge_30": 25,
+            "mapq_ge_60": 5,
+            "mean_mapq": 20.5,
+            "median_mapq": 17,
+            "mean_alignment_block_len": 1149.3,
+            "mean_residue_matches": 1187.9
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 3.96,
+            "user_time_sec": 16.47,
+            "sys_time_sec": 1.56,
+            "max_rss_mb": 295.9
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 3.0,
+            "user_time_sec": 4.52,
+            "sys_time_sec": 0.98,
+            "max_rss_mb": 857.4
+          },
+          "index_size_bytes": 165903277,
+          "throughput_reads_per_sec": 126.26,
+          "ground_truth_accuracy": {
+            "n_truth_reads": 45849,
+            "n_query_reads": 131,
+            "n_both_mapped": 20,
+            "TP": 10,
+            "FP": 121,
+            "FN": 45839,
+            "correct_position": 10,
+            "wrong_position": 10,
+            "precision": 0.0763,
+            "recall": 0.0002,
+            "f1": 0.0004,
+            "mean_mapq_correct": 30.8,
+            "mean_mapq_wrong": 27.4,
+            "overlap_threshold": 0.1
+          }
+        },
+        "pelt": {
+          "mapping_stats": {
+            "total_mappings": 275,
+            "unique_reads": 275,
+            "mapq_ge_1": 266,
+            "mapq_ge_10": 246,
+            "mapq_ge_30": 132,
+            "mapq_ge_60": 43,
+            "mean_mapq": 31.56,
+            "median_mapq": 28,
+            "mean_alignment_block_len": 655.2,
+            "mean_residue_matches": 659.8
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 2.57,
+            "user_time_sec": 7.22,
+            "sys_time_sec": 0.83,
+            "max_rss_mb": 276.2
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 3.28,
+            "user_time_sec": 4.42,
+            "sys_time_sec": 1.11,
+            "max_rss_mb": 857.4
+          },
+          "index_size_bytes": 165903277,
+          "throughput_reads_per_sec": 194.55,
+          "ground_truth_accuracy": {
+            "n_truth_reads": 45849,
+            "n_query_reads": 266,
+            "n_both_mapped": 22,
+            "TP": 5,
+            "FP": 261,
+            "FN": 45844,
+            "correct_position": 5,
+            "wrong_position": 17,
+            "precision": 0.0188,
+            "recall": 0.0001,
+            "f1": 0.0002,
+            "mean_mapq_correct": 42.8,
+            "mean_mapq_wrong": 33.29,
+            "overlap_threshold": 0.1
+          }
+        },
+        "binseg": {
+          "mapping_stats": {
+            "total_mappings": 26,
+            "unique_reads": 26,
+            "mapq_ge_1": 26,
+            "mapq_ge_10": 9,
+            "mapq_ge_30": 0,
+            "mapq_ge_60": 0,
+            "mean_mapq": 8.92,
+            "median_mapq": 8,
+            "mean_alignment_block_len": 261.6,
+            "mean_residue_matches": 1160.8
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 1.94,
+            "user_time_sec": 3.45,
+            "sys_time_sec": 0.52,
+            "max_rss_mb": 260.2
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 2.99,
+            "user_time_sec": 4.46,
+            "sys_time_sec": 1.01,
+            "max_rss_mb": 857.1
+          },
+          "index_size_bytes": 165903277,
+          "throughput_reads_per_sec": 257.73,
+          "ground_truth_accuracy": {
+            "n_truth_reads": 45849,
+            "n_query_reads": 26,
+            "n_both_mapped": 3,
+            "TP": 0,
+            "FP": 26,
+            "FN": 45849,
+            "correct_position": 0,
+            "wrong_position": 3,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "mean_mapq_correct": 0,
+            "mean_mapq_wrong": 9.0,
+            "overlap_threshold": 0.1
+          }
+        },
+        "scrappie": {
+          "mapping_stats": {
+            "total_mappings": 179,
+            "unique_reads": 179,
+            "mapq_ge_1": 175,
+            "mapq_ge_10": 141,
+            "mapq_ge_30": 47,
+            "mapq_ge_60": 11,
+            "mean_mapq": 22.51,
+            "median_mapq": 18,
+            "mean_alignment_block_len": 935.7,
+            "mean_residue_matches": 754.4
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 3.11,
+            "user_time_sec": 11.14,
+            "sys_time_sec": 1.12,
+            "max_rss_mb": 283.9
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 2.93,
+            "user_time_sec": 4.4,
+            "sys_time_sec": 1.06,
+            "max_rss_mb": 860.1
+          },
+          "index_size_bytes": 165903277,
+          "throughput_reads_per_sec": 160.77,
+          "ground_truth_accuracy": {
+            "n_truth_reads": 45849,
+            "n_query_reads": 175,
+            "n_both_mapped": 19,
+            "TP": 8,
+            "FP": 167,
+            "FN": 45841,
+            "correct_position": 8,
+            "wrong_position": 11,
+            "precision": 0.0457,
+            "recall": 0.0002,
+            "f1": 0.0003,
+            "mean_mapq_correct": 39.5,
+            "mean_mapq_wrong": 28.55,
+            "overlap_threshold": 0.1
+          }
+        }
+      }
+    },
+    "D6": {
+      "name": "D6: E. coli (R10.4)",
+      "n_reads": 294,
+      "n_truth_mappings": 0,
+      "has_ground_truth": false,
+      "segmenters": {
+        "default": {
+          "mapping_stats": {
+            "total_mappings": 1005811,
+            "unique_reads": 1005811,
+            "mapq_ge_1": 1000224,
+            "mapq_ge_10": 947779,
+            "mapq_ge_30": 516479,
+            "mapq_ge_60": 148365,
+            "mean_mapq": 33.06,
+            "median_mapq": 30,
+            "mean_alignment_block_len": 487.7,
+            "mean_residue_matches": 628.2
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 1789.59,
+            "user_time_sec": 9943.85,
+            "sys_time_sec": 917.14,
+            "max_rss_mb": 4141.0
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.76,
+            "user_time_sec": 1.03,
+            "sys_time_sec": 0.22,
+            "max_rss_mb": 356.2
+          },
+          "index_size_bytes": 75732173,
+          "throughput_reads_per_sec": 0.16,
+          "ground_truth_accuracy": {}
+        },
+        "hmm": {
+          "mapping_stats": {
+            "total_mappings": 329749,
+            "unique_reads": 329749,
+            "mapq_ge_1": 329644,
+            "mapq_ge_10": 211635,
+            "mapq_ge_30": 29276,
+            "mapq_ge_60": 1635,
+            "mean_mapq": 14.69,
+            "median_mapq": 12,
+            "mean_alignment_block_len": 894.6,
+            "mean_residue_matches": 1279.2
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 4572.0,
+            "user_time_sec": 31066.42,
+            "sys_time_sec": 1881.97,
+            "max_rss_mb": 4406.0
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.75,
+            "user_time_sec": 1.06,
+            "sys_time_sec": 0.19,
+            "max_rss_mb": 355.4
+          },
+          "index_size_bytes": 75732173,
+          "throughput_reads_per_sec": 0.06,
+          "ground_truth_accuracy": {}
+        },
+        "pelt": {
+          "mapping_stats": {
+            "total_mappings": 1005811,
+            "unique_reads": 1005811,
+            "mapq_ge_1": 1000224,
+            "mapq_ge_10": 947779,
+            "mapq_ge_30": 516479,
+            "mapq_ge_60": 148365,
+            "mean_mapq": 33.06,
+            "median_mapq": 30,
+            "mean_alignment_block_len": 487.7,
+            "mean_residue_matches": 628.2
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 1470.67,
+            "user_time_sec": 10250.45,
+            "sys_time_sec": 981.93,
+            "max_rss_mb": 4440.9
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.78,
+            "user_time_sec": 1.04,
+            "sys_time_sec": 0.21,
+            "max_rss_mb": 356.1
+          },
+          "index_size_bytes": 75732173,
+          "throughput_reads_per_sec": 0.2,
+          "ground_truth_accuracy": {}
+        },
+        "binseg": {
+          "mapping_stats": {
+            "total_mappings": 120308,
+            "unique_reads": 120308,
+            "mapq_ge_1": 120308,
+            "mapq_ge_10": 60571,
+            "mapq_ge_30": 762,
+            "mapq_ge_60": 0,
+            "mean_mapq": 10.31,
+            "median_mapq": 10,
+            "mean_alignment_block_len": 281.4,
+            "mean_residue_matches": 1161.4
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 1212.33,
+            "user_time_sec": 8443.17,
+            "sys_time_sec": 635.96,
+            "max_rss_mb": 4385.1
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.74,
+            "user_time_sec": 1.02,
+            "sys_time_sec": 0.23,
+            "max_rss_mb": 355.8
+          },
+          "index_size_bytes": 75732173,
+          "throughput_reads_per_sec": 0.24,
+          "ground_truth_accuracy": {}
+        },
+        "scrappie": {
+          "mapping_stats": {
+            "total_mappings": 242607,
+            "unique_reads": 242607,
+            "mapq_ge_1": 242605,
+            "mapq_ge_10": 115002,
+            "mapq_ge_30": 2251,
+            "mapq_ge_60": 15,
+            "mean_mapq": 10.19,
+            "median_mapq": 9,
+            "mean_alignment_block_len": 3307.2,
+            "mean_residue_matches": 196139.1
+          },
+          "mapping_performance": {
+            "wall_clock_sec": 4676.0,
+            "user_time_sec": 31285.26,
+            "sys_time_sec": 2404.12,
+            "max_rss_mb": 4429.4
+          },
+          "indexing_performance": {
+            "wall_clock_sec": 0.73,
+            "user_time_sec": 1.02,
+            "sys_time_sec": 0.23,
+            "max_rss_mb": 355.6
+          },
+          "index_size_bytes": 75732173,
+          "throughput_reads_per_sec": 0.06,
+          "ground_truth_accuracy": {}
+        }
+      }
+    }
+  }
+}
