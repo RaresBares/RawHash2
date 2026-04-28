@@ -22,6 +22,11 @@
 #define RI_SEGMENTER_BINSEG     3
 #define RI_SEGMENTER_SCRAPPIE   4
 #define RI_SEGMENTER_PYTHON     5
+#define RI_SEGMENTER_CUSUM      6
+#define RI_SEGMENTER_GRADIENT   7
+#define RI_SEGMENTER_MAD        8
+#define RI_SEGMENTER_BOCD       9
+#define RI_SEGMENTER_WINDOW    10
 
 #define RI_M_SEQUENCEUNTIL	0x1
 #define RI_M_RMQ			0x2

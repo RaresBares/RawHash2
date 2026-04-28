@@ -432,6 +432,11 @@ int main(int argc, char *argv[])
 			else if (strcmp(o.arg, "binseg") == 0) { opt.segmenter_type = RI_SEGMENTER_BINSEG; ipt.segmenter_type = RI_SEGMENTER_BINSEG; }
 			else if (strcmp(o.arg, "scrappie") == 0) { opt.segmenter_type = RI_SEGMENTER_SCRAPPIE; ipt.segmenter_type = RI_SEGMENTER_SCRAPPIE; }
 			else if (strcmp(o.arg, "python") == 0) { opt.segmenter_type = RI_SEGMENTER_PYTHON; ipt.segmenter_type = RI_SEGMENTER_PYTHON; }
+			else if (strcmp(o.arg, "cusum") == 0) { opt.segmenter_type = RI_SEGMENTER_CUSUM; ipt.segmenter_type = RI_SEGMENTER_CUSUM; }
+			else if (strcmp(o.arg, "gradient") == 0) { opt.segmenter_type = RI_SEGMENTER_GRADIENT; ipt.segmenter_type = RI_SEGMENTER_GRADIENT; }
+			else if (strcmp(o.arg, "mad") == 0) { opt.segmenter_type = RI_SEGMENTER_MAD; ipt.segmenter_type = RI_SEGMENTER_MAD; }
+			else if (strcmp(o.arg, "bocd") == 0) { opt.segmenter_type = RI_SEGMENTER_BOCD; ipt.segmenter_type = RI_SEGMENTER_BOCD; }
+			else if (strcmp(o.arg, "window") == 0) { opt.segmenter_type = RI_SEGMENTER_WINDOW; ipt.segmenter_type = RI_SEGMENTER_WINDOW; }
 			else { fprintf(stderr, "[ERROR] unknown segmenter '%s'\n", o.arg); return 1; }
 		}
 		else if (c == 373) { opt.python_segmenter_script = o.arg; ipt.python_segmenter_script = o.arg; } // --segmenter-script
@@ -510,7 +515,8 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    --seg-threshold1 FLOAT     [Advanced] Peak value threshold for the first window in segmentation [%g]\n", opt.threshold1);
 		fprintf(fp_help, "    --seg-threshold2 FLOAT     [Advanced] Peak value threshold for the first window in segmentation [%g]\n", opt.threshold2);
 		fprintf(fp_help, "    --seg-peak-height FLOAT     [Advanced] Peak height than the current signal to confirm the peak point in segmentation [%g]\n", opt.peak_height);
-		fprintf(fp_help, "    --segmenter STR     Event segmenter algorithm: 'default', 'hmm', 'pelt', 'binseg', 'scrappie', 'python' [default]\n");
+		fprintf(fp_help, "    --segmenter STR     Event segmenter: default, hmm, pelt, binseg, scrappie,\n");
+		fprintf(fp_help, "                        cusum, gradient, mad, bocd, window, python [default]\n");
 		fprintf(fp_help, "    --segmenter-script FILE     Path to Python script for --segmenter python []\n");
 
 		fprintf(fp_help, "\n  Sequence Until Parameters:\n");

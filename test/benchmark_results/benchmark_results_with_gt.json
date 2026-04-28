@@ -232,8 +232,8 @@
     "D2": {
       "name": "D2: E. coli (R9.4)",
       "n_reads": 89,
-      "n_truth_mappings": 0,
-      "has_ground_truth": false,
+      "n_truth_mappings": 353592,
+      "has_ground_truth": true,
       "segmenters": {
         "default": {
           "mapping_stats": {
@@ -262,7 +262,22 @@
           },
           "index_size_bytes": 76058909,
           "throughput_reads_per_sec": 0.15,
-          "ground_truth_accuracy": {}
+          "ground_truth_accuracy": {
+            "n_truth_reads": 350620,
+            "n_query_reads": 334689,
+            "n_both_mapped": 334555,
+            "TP": 140378,
+            "FP": 194311,
+            "FN": 210242,
+            "correct_position": 140378,
+            "wrong_position": 194177,
+            "precision": 0.4194,
+            "recall": 0.4004,
+            "f1": 0.4097,
+            "mean_mapq_correct": 42.2,
+            "mean_mapq_wrong": 37.99,
+            "overlap_threshold": 0.1
+          }
         },
         "hmm": {
           "mapping_stats": {
@@ -291,7 +306,22 @@
           },
           "index_size_bytes": 76058909,
           "throughput_reads_per_sec": 0.23,
-          "ground_truth_accuracy": {}
+          "ground_truth_accuracy": {
+            "n_truth_reads": 350620,
+            "n_query_reads": 306536,
+            "n_both_mapped": 306442,
+            "TP": 174131,
+            "FP": 132405,
+            "FN": 176489,
+            "correct_position": 174131,
+            "wrong_position": 132311,
+            "precision": 0.5681,
+            "recall": 0.4966,
+            "f1": 0.53,
+            "mean_mapq_correct": 30.4,
+            "mean_mapq_wrong": 28.98,
+            "overlap_threshold": 0.1
+          }
         },
         "pelt": {
           "mapping_stats": {
@@ -320,7 +350,22 @@
           },
           "index_size_bytes": 76058909,
           "throughput_reads_per_sec": 0.32,
-          "ground_truth_accuracy": {}
+          "ground_truth_accuracy": {
+            "n_truth_reads": 350620,
+            "n_query_reads": 334689,
+            "n_both_mapped": 334555,
+            "TP": 140378,
+            "FP": 194311,
+            "FN": 210242,
+            "correct_position": 140378,
+            "wrong_position": 194177,
+            "precision": 0.4194,
+            "recall": 0.4004,
+            "f1": 0.4097,
+            "mean_mapq_correct": 42.2,
+            "mean_mapq_wrong": 37.99,
+            "overlap_threshold": 0.1
+          }
         },
         "binseg": {
           "mapping_stats": {
@@ -349,7 +394,22 @@
           },
           "index_size_bytes": 76058909,
           "throughput_reads_per_sec": 0.29,
-          "ground_truth_accuracy": {}
+          "ground_truth_accuracy": {
+            "n_truth_reads": 350620,
+            "n_query_reads": 43191,
+            "n_both_mapped": 43068,
+            "TP": 19,
+            "FP": 43172,
+            "FN": 350601,
+            "correct_position": 19,
+            "wrong_position": 43049,
+            "precision": 0.0004,
+            "recall": 0.0001,
+            "f1": 0.0001,
+            "mean_mapq_correct": 11.95,
+            "mean_mapq_wrong": 8.23,
+            "overlap_threshold": 0.1
+          }
         },
         "scrappie": {
           "mapping_stats": {
@@ -378,7 +438,22 @@
           },
           "index_size_bytes": 76058909,
           "throughput_reads_per_sec": 0.22,
-          "ground_truth_accuracy": {}
+          "ground_truth_accuracy": {
+            "n_truth_reads": 350620,
+            "n_query_reads": 266107,
+            "n_both_mapped": 265974,
+            "TP": 124628,
+            "FP": 141479,
+            "FN": 225992,
+            "correct_position": 124628,
+            "wrong_position": 141346,
+            "precision": 0.4683,
+            "recall": 0.3555,
+            "f1": 0.4042,
+            "mean_mapq_correct": 28.58,
+            "mean_mapq_wrong": 26.08,
+            "overlap_threshold": 0.1
+          }
         }
       }
     },
@@ -613,8 +688,8 @@
     "D6": {
       "name": "D6: E. coli (R10.4)",
       "n_reads": 294,
-      "n_truth_mappings": 0,
-      "has_ground_truth": false,
+      "n_truth_mappings": 1366819,
+      "has_ground_truth": true,
       "segmenters": {
         "default": {
           "mapping_stats": {
@@ -643,7 +718,22 @@
           },
           "index_size_bytes": 75732173,
           "throughput_reads_per_sec": 0.16,
-          "ground_truth_accuracy": {}
+          "ground_truth_accuracy": {
+            "n_truth_reads": 1167335,
+            "n_query_reads": 1000224,
+            "n_both_mapped": 999804,
+            "TP": 531160,
+            "FP": 469064,
+            "FN": 636175,
+            "correct_position": 531160,
+            "wrong_position": 468644,
+            "precision": 0.531,
+            "recall": 0.455,
+            "f1": 0.4901,
+            "mean_mapq_correct": 34.97,
+            "mean_mapq_wrong": 31.3,
+            "overlap_threshold": 0.1
+          }
         },
         "hmm": {
           "mapping_stats": {
@@ -672,7 +762,22 @@
           },
           "index_size_bytes": 75732173,
           "throughput_reads_per_sec": 0.06,
-          "ground_truth_accuracy": {}
+          "ground_truth_accuracy": {
+            "n_truth_reads": 1167335,
+            "n_query_reads": 329644,
+            "n_both_mapped": 329191,
+            "TP": 100789,
+            "FP": 228855,
+            "FN": 1066546,
+            "correct_position": 100789,
+            "wrong_position": 228402,
+            "precision": 0.3058,
+            "recall": 0.0863,
+            "f1": 0.1347,
+            "mean_mapq_correct": 19.84,
+            "mean_mapq_wrong": 12.43,
+            "overlap_threshold": 0.1
+          }
         },
         "pelt": {
           "mapping_stats": {
@@ -701,7 +806,22 @@
           },
           "index_size_bytes": 75732173,
           "throughput_reads_per_sec": 0.2,
-          "ground_truth_accuracy": {}
+          "ground_truth_accuracy": {
+            "n_truth_reads": 1167335,
+            "n_query_reads": 1000224,
+            "n_both_mapped": 999804,
+            "TP": 531160,
+            "FP": 469064,
+            "FN": 636175,
+            "correct_position": 531160,
+            "wrong_position": 468644,
+            "precision": 0.531,
+            "recall": 0.455,
+            "f1": 0.4901,
+            "mean_mapq_correct": 34.97,
+            "mean_mapq_wrong": 31.3,
+            "overlap_threshold": 0.1
+          }
         },
         "binseg": {
           "mapping_stats": {
@@ -730,7 +850,22 @@
           },
           "index_size_bytes": 75732173,
           "throughput_reads_per_sec": 0.24,
-          "ground_truth_accuracy": {}
+          "ground_truth_accuracy": {
+            "n_truth_reads": 1167335,
+            "n_query_reads": 120308,
+            "n_both_mapped": 120026,
+            "TP": 13,
+            "FP": 120295,
+            "FN": 1167322,
+            "correct_position": 13,
+            "wrong_position": 120013,
+            "precision": 0.0001,
+            "recall": 0.0,
+            "f1": 0.0,
+            "mean_mapq_correct": 10.92,
+            "mean_mapq_wrong": 10.32,
+            "overlap_threshold": 0.1
+          }
         },
         "scrappie": {
           "mapping_stats": {
@@ -759,9 +894,120 @@
           },
           "index_size_bytes": 75732173,
           "throughput_reads_per_sec": 0.06,
-          "ground_truth_accuracy": {}
+          "ground_truth_accuracy": {
+            "n_truth_reads": 1167335,
+            "n_query_reads": 242605,
+            "n_both_mapped": 242014,
+            "TP": 6254,
+            "FP": 236351,
+            "FN": 1161081,
+            "correct_position": 6254,
+            "wrong_position": 235760,
+            "precision": 0.0258,
+            "recall": 0.0054,
+            "f1": 0.0089,
+            "mean_mapq_correct": 13.43,
+            "mean_mapq_wrong": 10.1,
+            "overlap_threshold": 0.1
+          }
         }
       }
+    },
+    "D7": {
+      "segmenters": {
+        "default": {
+          "ground_truth_accuracy": {
+            "n_truth_reads": 21553,
+            "n_query_reads": 18269,
+            "n_both_mapped": 7198,
+            "TP": 2046,
+            "FP": 16223,
+            "FN": 19507,
+            "correct_position": 2046,
+            "wrong_position": 5152,
+            "precision": 0.112,
+            "recall": 0.0949,
+            "f1": 0.1028,
+            "mean_mapq_correct": 22.12,
+            "mean_mapq_wrong": 12.78,
+            "overlap_threshold": 0.1
+          }
+        },
+        "hmm": {
+          "ground_truth_accuracy": {
+            "n_truth_reads": 21553,
+            "n_query_reads": 16246,
+            "n_both_mapped": 5738,
+            "TP": 55,
+            "FP": 16191,
+            "FN": 21498,
+            "correct_position": 55,
+            "wrong_position": 5683,
+            "precision": 0.0034,
+            "recall": 0.0026,
+            "f1": 0.0029,
+            "mean_mapq_correct": 15.58,
+            "mean_mapq_wrong": 11.56,
+            "overlap_threshold": 0.1
+          }
+        },
+        "pelt": {
+          "ground_truth_accuracy": {
+            "n_truth_reads": 21553,
+            "n_query_reads": 18269,
+            "n_both_mapped": 7198,
+            "TP": 2046,
+            "FP": 16223,
+            "FN": 19507,
+            "correct_position": 2046,
+            "wrong_position": 5152,
+            "precision": 0.112,
+            "recall": 0.0949,
+            "f1": 0.1028,
+            "mean_mapq_correct": 22.12,
+            "mean_mapq_wrong": 12.78,
+            "overlap_threshold": 0.1
+          }
+        },
+        "binseg": {
+          "ground_truth_accuracy": {
+            "n_truth_reads": 21553,
+            "n_query_reads": 8684,
+            "n_both_mapped": 3227,
+            "TP": 2,
+            "FP": 8682,
+            "FN": 21551,
+            "correct_position": 2,
+            "wrong_position": 3225,
+            "precision": 0.0002,
+            "recall": 0.0001,
+            "f1": 0.0001,
+            "mean_mapq_correct": 5.5,
+            "mean_mapq_wrong": 10.08,
+            "overlap_threshold": 0.1
+          }
+        },
+        "scrappie": {
+          "ground_truth_accuracy": {
+            "n_truth_reads": 21553,
+            "n_query_reads": 18873,
+            "n_both_mapped": 6609,
+            "TP": 9,
+            "FP": 18864,
+            "FN": 21544,
+            "correct_position": 9,
+            "wrong_position": 6600,
+            "precision": 0.0005,
+            "recall": 0.0004,
+            "f1": 0.0004,
+            "mean_mapq_correct": 8.89,
+            "mean_mapq_wrong": 11.27,
+            "overlap_threshold": 0.1
+          }
+        }
+      },
+      "has_ground_truth": true,
+      "n_truth_mappings": 22295
     }
   }
 }

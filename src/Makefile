@@ -1,16 +1,16 @@
 #pass DEBUG=1 to make to enable debugging
 ifdef DEBUG
-	CFLAGS=-Wall -O2 -fsanitize=address -g -Wc++-compat -march=native -pthread -DHAVE_KALLOC
-	CPPFLAGS=--std=c++11 -Wall -O2 -fsanitize=address -g -march=native -pthread -DHAVE_KALLOC
+	CFLAGS=-Wall -O2 -fsanitize=address -g -Wc++-compat -march=x86-64-v3 -pthread -DHAVE_KALLOC
+	CPPFLAGS=--std=c++11 -Wall -O2 -fsanitize=address -g -march=x86-64-v3 -pthread -DHAVE_KALLOC
 else
-	CFLAGS=-Wall -O3 -Wc++-compat -march=native -pthread -DHAVE_KALLOC
-	CPPFLAGS=-std=c++11 -Wall -O3 -march=native -pthread -DHAVE_KALLOC
+	CFLAGS=-Wall -O3 -Wc++-compat -march=x86-64-v3 -pthread -DHAVE_KALLOC
+	CPPFLAGS=-std=c++11 -Wall -O3 -march=x86-64-v3 -pthread -DHAVE_KALLOC
 endif
 
 #pass PROFILE=1 to make to enable profiling
 ifdef PROFILE
-	CFLAGS+=-g -fno-omit-frame-pointer -march=native -DPROFILERH=1
-	CPPFLAGS+=-g -fno-omit-frame-pointer -march=native -DPROFILERH=1
+	CFLAGS+=-g -fno-omit-frame-pointer -march=x86-64-v3 -DPROFILERH=1
+	CPPFLAGS+=-g -fno-omit-frame-pointer -march=x86-64-v3 -DPROFILERH=1
 endif
 
 OBJS= kthread.o kalloc.o bseq.o roptions.o sequence_until.o rutils.o rsig.o revent.o rsketch.o rindex.o lchain.o rseed.o rmap.o dtw.o hit.o main.o
