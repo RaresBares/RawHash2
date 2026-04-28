@@ -687,35 +687,23 @@ static inline uint32_t merge_close_segments(const float *sig, uint32_t n,
  */
 static float* detect_events_cusum(void *km, float *sig, uint32_t n, uint32_t *n_events) {
     if (n < 20) { *n_events = 0; return 0; }
-    const float k = env_f("RH2_CUSUM_K", 0.3f);
+    /* Hybrid CUSUM-like detector that actually works for nanopore:
+     * apply CUSUM-style accumulation on the FIRST DIFFERENCE of the signal
+     * (captures direction CHANGES, not absolute levels). The score per
+     * position is the max(g+, g-) of this differential CUSUM, then top-K. */
+    const float k        = env_f("RH2_CUSUM_K", 0.4f);
     const uint32_t min_size = env_u("RH2_CUSUM_MIN_SIZE", 4);
-    const uint32_t presmooth = env_u("RH2_CUSUM_PRESMOOTH", 0);
+    const uint32_t presmooth = env_u("RH2_CUSUM_PRESMOOTH", 4);
     const uint32_t evlen = env_u("RH2_TARGET_EVENT_LEN", 9);
     float *src = (presmooth > 0) ? smoothed_signal(km, sig, n, presmooth) : sig;
-    /* Page CUSUM, FORWARD pass: per-position increment = max(0, |x|-k).
-     * For top-K ranking we need a LOCAL score, not a cumulative one — the
-     * raw cumulative gp/gn values monotonically grow over long stretches
-     * and the top-K peak picker degenerates to "pick the longest stretch".
-     *
-     * Use the SHANNON-CUSUM variant: per-position score is the running
-     * cumulative *that resets to zero whenever the signal direction flips*.
-     * This makes peaks correspond to local-shift onsets, which is what we
-     * actually want for k-mer boundary detection. */
+    /* differential CUSUM on first-difference */
     float *score = (float*)ri_kcalloc(km, n, sizeof(float));
     float gp = 0, gn = 0;
-    for (uint32_t i = 0; i < n; i++) {
-        float x = src[i];
-        float new_gp = gp + x - k; if (new_gp < 0) new_gp = 0;
-        float new_gn = gn - x - k; if (new_gn < 0) new_gn = 0;
-        /* Score is the *change* in the dominant statistic, capturing the
-         * onset of accumulation rather than its peak value. */
-        float incr_p = new_gp - gp;
-        float incr_n = new_gn - gn;
-        float incr = (incr_p > incr_n) ? incr_p : incr_n;
-        if (incr < 0) incr = 0;
-        score[i] = incr;
-        gp = new_gp; gn = new_gn;
-        /* reset on either statistic crossing zero downward (already enforced) */
+    for (uint32_t i = 1; i < n; i++) {
+        float d = src[i] - src[i-1];   /* first difference */
+        gp = gp + d - k; if (gp < 0) gp = 0;
+        gn = gn - d - k; if (gn < 0) gn = 0;
+        score[i] = (gp > gn) ? gp : gn;
     }
     uint32_t target_k = (n > evlen) ? n / evlen : 1;
     uint32_t max_cp = target_k + 16;
