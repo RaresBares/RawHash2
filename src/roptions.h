@@ -27,6 +27,11 @@
 #define RI_SEGMENTER_MAD        8
 #define RI_SEGMENTER_BOCD       9
 #define RI_SEGMENTER_WINDOW    10
+#define RI_SEGMENTER_WAVELET   11
+#define RI_SEGMENTER_TDA       12
+#define RI_SEGMENTER_CONVBANK  13
+#define RI_SEGMENTER_FUSION    14
+#define RI_SEGMENTER_TURBO     15
 
 #define RI_M_SEQUENCEUNTIL	0x1
 #define RI_M_RMQ			0x2

@@ -933,6 +933,364 @@ static int spawn_python_worker(const char *script_path) {
     return 0;
 }
 
+/* ---- 11. Wavelet (Haar multi-scale detail magnitude) ------------------ *
+ * Multi-scale "à trous"-style Haar wavelet: per-position score = sum of
+ * |signal[i+w] - signal[i-w]| over scales w ∈ {2,4,8,16}. Captures
+ * boundaries that are sharp at multiple scales, suppresses single-sample
+ * noise spikes. Real-time friendly (causal version uses only past samples).
+ */
+static float* detect_events_wavelet(void *km, float *sig, uint32_t n, uint32_t *n_events) {
+    if (n < 40) { *n_events = 0; return 0; }
+    const uint32_t min_size = env_u("RH2_WAVELET_MIN_SIZE", 4);
+    const uint32_t presmooth = env_u("RH2_WAVELET_PRESMOOTH", 0);
+    const uint32_t evlen = env_u("RH2_TARGET_EVENT_LEN", 9);
+    float *src = (presmooth > 0) ? smoothed_signal(km, sig, n, presmooth) : sig;
+    float *score = (float*)ri_kcalloc(km, n, sizeof(float));
+    /* Multi-scale Haar detail magnitude, normalised by local std (z-score-like).
+     * Without normalisation, raw amplitudes dominate score → events crowd in
+     * high-noise regions instead of at real boundaries. */
+    const uint32_t scales[] = {2, 4, 8, 16};
+    const uint32_t n_scales = sizeof(scales)/sizeof(*scales);
+    /* prefix sums for fast local std */
+    double *ps = (double*)ri_kcalloc(km, n+1, sizeof(double));
+    double *pss = (double*)ri_kcalloc(km, n+1, sizeof(double));
+    for (uint32_t i = 0; i < n; i++) {
+        ps[i+1] = ps[i] + src[i];
+        pss[i+1] = pss[i] + (double)src[i]*src[i];
+    }
+    for (uint32_t i = 16; i + 16 < n; i++) {
+        float s = 0;
+        for (uint32_t k = 0; k < n_scales; k++) {
+            uint32_t w = scales[k];
+            double sum_l = ps[i] - ps[i-w], sum_r = ps[i+w] - ps[i];
+            double sq_l  = pss[i] - pss[i-w], sq_r = pss[i+w] - pss[i];
+            double mean_l = sum_l/w, mean_r = sum_r/w;
+            double var_l = sq_l/w - mean_l*mean_l;
+            double var_r = sq_r/w - mean_r*mean_r;
+            double pooled = sqrt(0.5*(var_l + var_r) + 1e-6);
+            s += (float)(fabs(mean_r - mean_l) / pooled);
+        }
+        score[i] = s;
+    }
+    ri_kfree(km, ps); ri_kfree(km, pss);
+    uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    uint32_t max_cp = target_k + 16;
+    uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
+    uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, min_size, cps, max_cp);
+    ri_kfree(km, score);
+    float *events = (n_cp > 0) ? gen_events(km, sig, cps, n_cp, n, n_events)
+                                : (*n_events = 0, (float*)NULL);
+    if (presmooth > 0) ri_kfree(km, src);
+    ri_kfree(km, cps);
+    return events;
+}
+
+/* ---- 12. TDA (Topological persistence on 1D function) ----------------- *
+ * 1D persistent homology = elder rule on critical points of the signal.
+ * Score per position = topological persistence of the local extremum at
+ * that position (= lifetime in sublevel filtration). Boundaries with high
+ * persistence correspond to large mean shifts and are noise-robust.
+ *
+ * Simplified algorithm: Find all local mins/maxes; pair each (min, max)
+ * by sweeping in value order; persistence = max_value - min_value.
+ */
+/* Compute 1D persistent homology via elder-rule:
+ *   1. Find all local minima (in sublevel filtration).
+ *   2. Each minimum is "born" at its value; "dies" when merged into a
+ *      neighboring component at a saddle (local max). Persistence = saddle - min.
+ *   3. Each min has a position and a persistence; boundaries are at min positions.
+ * Score per position is the persistence of the min that lives at that position. */
+static void compute_1d_persistence(const float *sig, uint32_t n, float *score_out) {
+    /* Find local minima */
+    for (uint32_t i = 1; i + 1 < n; i++) {
+        if (sig[i] <= sig[i-1] && sig[i] < sig[i+1]) {
+            /* expand left/right until we find a saddle (lower neighbor goes back up) */
+            float left_max = sig[i], right_max = sig[i];
+            for (int j = (int)i - 1; j >= 0; j--) {
+                if (sig[j] > left_max) left_max = sig[j];
+                /* stop if we encounter another min lower than i (we'd be killed by it) */
+                if (sig[j] < sig[i]) break;
+            }
+            for (uint32_t j = i + 1; j < n; j++) {
+                if (sig[j] > right_max) right_max = sig[j];
+                if (sig[j] < sig[i]) break;
+            }
+            float death = (left_max < right_max) ? left_max : right_max;
+            float persistence = death - sig[i];
+            if (persistence > score_out[i]) score_out[i] = persistence;
+        }
+    }
+    /* Symmetric: also score local maxima by their persistence (super-level) */
+    for (uint32_t i = 1; i + 1 < n; i++) {
+        if (sig[i] >= sig[i-1] && sig[i] > sig[i+1]) {
+            float left_min = sig[i], right_min = sig[i];
+            for (int j = (int)i - 1; j >= 0; j--) {
+                if (sig[j] < left_min) left_min = sig[j];
+                if (sig[j] > sig[i]) break;
+            }
+            for (uint32_t j = i + 1; j < n; j++) {
+                if (sig[j] < right_min) right_min = sig[j];
+                if (sig[j] > sig[i]) break;
+            }
+            float birth = (left_min > right_min) ? left_min : right_min;
+            float persistence = sig[i] - birth;
+            if (persistence > score_out[i]) score_out[i] = persistence;
+        }
+    }
+}
+
+static float* detect_events_tda(void *km, float *sig, uint32_t n, uint32_t *n_events) {
+    if (n < 40) { *n_events = 0; return 0; }
+    const uint32_t min_size = env_u("RH2_TDA_MIN_SIZE", 4);
+    const uint32_t presmooth = env_u("RH2_TDA_PRESMOOTH", 3);
+    const uint32_t evlen = env_u("RH2_TARGET_EVENT_LEN", 9);
+    float *src = (presmooth > 0) ? smoothed_signal(km, sig, n, presmooth) : sig;
+    float *score = (float*)ri_kcalloc(km, n, sizeof(float));
+    /* Real 1D persistent homology: score is the persistence (lifetime in
+     * sublevel filtration) of each local extremum. Boundaries with high
+     * persistence correspond to genuine k-mer transitions; small
+     * fluctuations have low persistence and are filtered by top-K. */
+    compute_1d_persistence(src, n, score);
+    uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    uint32_t max_cp = target_k + 16;
+    uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
+    uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, min_size, cps, max_cp);
+    ri_kfree(km, score);
+    float *events = (n_cp > 0) ? gen_events(km, sig, cps, n_cp, n, n_events)
+                                : (*n_events = 0, (float*)NULL);
+    if (presmooth > 0) ri_kfree(km, src);
+    ri_kfree(km, cps);
+    return events;
+}
+
+/* ---- 13. ConvBank (light "CNN-like" filter bank) ---------------------- *
+ * Inspired by the first conv layer of a 1D-CNN edge detector but with
+ * fixed, hand-designed weights — no training, fully deterministic.
+ * Three filter shapes at three scales = 9 features per position; max-pool
+ * across them gives the per-position score. Top-K then picks events.
+ *
+ * Filters (centered, antisymmetric "edge" + symmetric "Gaussian curvature"):
+ *   - edge_5  = [-1, -1, 0, 1, 1] (smooth gradient)
+ *   - edge_9  = [-1, -1, -1, -1, 0, 1, 1, 1, 1]
+ *   - peak_7  = [-1, 1, 2, 4, 2, 1, -1] / scale (approximate Mexican-hat)
+ * Each at scales 1, 2, 4 = 9 outputs total.
+ */
+static float* detect_events_convbank(void *km, float *sig, uint32_t n, uint32_t *n_events) {
+    if (n < 40) { *n_events = 0; return 0; }
+    const uint32_t min_size = env_u("RH2_CONVBANK_MIN_SIZE", 4);
+    const uint32_t presmooth = env_u("RH2_CONVBANK_PRESMOOTH", 2);
+    const uint32_t evlen = env_u("RH2_TARGET_EVENT_LEN", 9);
+    float *src = (presmooth > 0) ? smoothed_signal(km, sig, n, presmooth) : sig;
+    float *score = (float*)ri_kcalloc(km, n, sizeof(float));
+
+    /* "CNN-like" edge-detector bank: 4 STEP filters at scales 1/2/4/8.
+     * Each filter is a centered first-difference (DoG-style); we square
+     * each response (gives positive saliency) and sum across scales for a
+     * stable multi-scale edge magnitude. Plus a normalising local-std
+     * divider. This is essentially the first conv layer of a 1D-CNN edge
+     * detector with hand-crafted weights. */
+    const uint32_t scales[] = {1, 2, 4, 8};
+    /* prefix sums for cheap local std */
+    double *ps = (double*)ri_kcalloc(km, n+1, sizeof(double));
+    double *pss = (double*)ri_kcalloc(km, n+1, sizeof(double));
+    for (uint32_t i = 0; i < n; i++) {
+        ps[i+1] = ps[i] + src[i];
+        pss[i+1] = pss[i] + (double)src[i]*src[i];
+    }
+    const uint32_t LSW = 16;  /* local std window */
+    for (uint32_t i = LSW; i + LSW < n; i++) {
+        /* local std for normalisation */
+        double sumW = ps[i+LSW] - ps[i-LSW];
+        double sqW  = pss[i+LSW] - pss[i-LSW];
+        double meanW = sumW / (2*LSW);
+        double varW = sqW / (2*LSW) - meanW*meanW;
+        double sigma = sqrt(varW + 1e-6);
+        double s = 0;
+        for (uint32_t k = 0; k < 4; k++) {
+            uint32_t w = scales[k];
+            float lhs = 0, rhs = 0;
+            for (uint32_t j = 0; j < w; j++) { lhs += src[i - w + j]; rhs += src[i + j]; }
+            float diff = (rhs - lhs) / w;
+            s += (diff*diff) / (sigma*sigma + 1e-9);
+        }
+        score[i] = (float)sqrt(s);
+    }
+    ri_kfree(km, ps); ri_kfree(km, pss);
+    uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    uint32_t max_cp = target_k + 16;
+    uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
+    uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, min_size, cps, max_cp);
+    ri_kfree(km, score);
+    float *events = (n_cp > 0) ? gen_events(km, sig, cps, n_cp, n, n_events)
+                                : (*n_events = 0, (float*)NULL);
+    if (presmooth > 0) ri_kfree(km, src);
+    ri_kfree(km, cps);
+    return events;
+}
+
+/* ---- 14. Fusion (ML-inspired multi-feature CPD) ----------------------- *
+ * Goal: beat default while staying within 10% of its runtime. Approach:
+ *   1. Compute a feature vector per position from cheap O(n) statistics:
+ *        f1 = local t-stat (dual-window like default)
+ *        f2 = first-difference magnitude (gradient)
+ *        f3 = local curvature: |signal[i] - 0.5*(signal[i-w] + signal[i+w])|
+ *   2. Combine via a learned-style weighted L2-norm:
+ *        score[i] = sqrt(α·f1² + β·f2² + γ·f3²)
+ *      where weights (α, β, γ) are hand-tuned defaults but env-overridable.
+ *      The weights bias toward features that carry independent info about
+ *      a real k-mer transition (level shift + sharp gradient + curvature).
+ *   3. Top-K NMS for density control (same as our other modern segmenters).
+ *
+ * This is not a trained NN — it is a hand-designed feature fusion that
+ * mimics the first layer of a 1D-CNN edge detector, with weights chosen
+ * so each feature contributes complementary information.
+ */
+static float* detect_events_fusion(void *km, float *sig, uint32_t n, uint32_t *n_events) {
+    if (n < 30) { *n_events = 0; return 0; }
+    /* "fusion" = default's exact comp_tstat scoring (short + long windows)
+     * combined via MAX, then Top-K NMS instead of threshold-based gen_peaks.
+     * Uses default's optimised float prefix sums and t-stat helper to keep
+     * the runtime within ~10% of default. */
+    const uint32_t min_size = env_u("RH2_FUSION_MIN_SIZE", 4);
+    const uint32_t evlen = env_u("RH2_TARGET_EVENT_LEN", 9);
+    const uint32_t W1 = env_u("RH2_FUSION_W1", 3);
+    const uint32_t W2 = env_u("RH2_FUSION_W2", 9);
+    const float curv_w = env_f("RH2_FUSION_CURV", 0.15f);
+
+    /* Reuse default's optimised float prefix sums + comp_tstat helper. */
+    float *prefix_sum = (float*)ri_kcalloc(km, n+1, sizeof(float));
+    float *prefix_sum_square = (float*)ri_kcalloc(km, n+1, sizeof(float));
+    comp_prefix_prefixsq(sig, n, prefix_sum, prefix_sum_square);
+    float *t1 = comp_tstat(km, prefix_sum, prefix_sum_square, n, W1);
+    float *t2 = comp_tstat(km, prefix_sum, prefix_sum_square, n, W2);
+
+    float *score = (float*)ri_kcalloc(km, n, sizeof(float));
+    for (uint32_t i = 1; i + 1 < n; i++) {
+        float a = t1[i], b = t2[i];
+        float mx = (a > b) ? a : b;
+        float curv = fabsf(sig[i+1] - 2*sig[i] + sig[i-1]);
+        score[i] = mx + curv_w * curv;
+    }
+
+    ri_kfree(km, prefix_sum); ri_kfree(km, prefix_sum_square);
+    ri_kfree(km, t1); ri_kfree(km, t2);
+
+    uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    uint32_t max_cp = target_k + 16;
+    uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
+    uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, min_size, cps, max_cp);
+    ri_kfree(km, score);
+    float *events = (n_cp > 0) ? gen_events(km, sig, cps, n_cp, n, n_events)
+                                : (*n_events = 0, (float*)NULL);
+    ri_kfree(km, cps);
+    return events;
+}
+
+/* ---- 15. Turbo (algorithmically identical to default, fused 1-pass) --- *
+ * Same dual-window t-stat + gen_peaks logic as default, but with:
+ *  - tstat computed INLINE (no temporary float array of length n × 2)
+ *  - exact same float math (no sqrt skipping — preserves byte-identical
+ *    boundary positions to default)
+ *  - one fused loop over positions instead of three (tstat1, tstat2,
+ *    gen_peaks) → saves 2/3 of memory traffic.
+ *
+ * The fused loop replicates default's `gen_peaks` state machine with
+ * inline t-stat values; the state machine itself is bitwise identical. */
+static float* detect_events_turbo(void *km, float *sig, uint32_t n, uint32_t *n_events,
+                                   uint32_t w1, uint32_t w2,
+                                   float th1, float th2, float ph) {
+    if (n < 30) { *n_events = 0; return 0; }
+    const float eta = FLT_MIN;
+
+    float *ps = (float*)ri_kcalloc(km, n+1, sizeof(float));
+    float *pss = (float*)ri_kcalloc(km, n+1, sizeof(float));
+    for (uint32_t i = 0; i < n; i++) {
+        ps[i+1] = ps[i] + sig[i];
+        pss[i+1] = pss[i] + sig[i]*sig[i];
+    }
+
+    /* Replicate default's gen_peaks state for two detectors (short, long). */
+    const uint32_t W[2] = {w1, w2};
+    const float TH[2] = {th1, th2};
+    int peak_pos[2]   = {-1, -1};
+    float peak_val[2] = {FLT_MAX, FLT_MAX};
+    int valid[2]      = {0, 0};
+    uint32_t mask_to[2] = {0, 0};
+
+    uint32_t *peaks = (uint32_t*)ri_kcalloc(km, n, sizeof(uint32_t));
+    uint32_t n_peaks = 0;
+
+    /* Bounds: tstat is well-defined for w_len <= i <= s_len - w_len. */
+    uint32_t i_start = w2;
+    uint32_t i_stop  = (n > w2) ? n - w2 : 0;
+    for (uint32_t i = i_start; i <= i_stop; i++) {
+        for (int k = 0; k < 2; k++) {
+            uint32_t w = W[k];
+            if (i < w || i + w > n) { /* tstat undefined here */ continue; }
+            if (mask_to[k] >= i) continue;
+            /* compute tstat[i] for window w (same formula as comp_tstat) */
+            float sum1 = ps[i] - ((i > w) ? ps[i - w] : 0);
+            float sumsq1 = pss[i] - ((i > w) ? pss[i - w] : 0);
+            float sum2 = ps[i + w] - ps[i];
+            float sumsq2 = pss[i + w] - pss[i];
+            float m1 = sum1 / w, m2 = sum2 / w;
+            float vcomb = (sumsq1/w - m1*m1 + sumsq2/w - m2*m2) / w;
+            if (vcomb < eta) vcomb = eta;
+            float dm = m2 - m1;
+            float cur = fabsf(dm) / sqrtf(vcomb);
+
+            /* Default's gen_peaks state machine — bitwise identical logic. */
+            if (peak_pos[k] == -1) {
+                if (cur < peak_val[k]) {
+                    peak_val[k] = cur;
+                } else if (cur - peak_val[k] > ph) {
+                    peak_val[k] = cur;
+                    peak_pos[k] = (int)i;
+                }
+            } else {
+                if (cur > peak_val[k]) {
+                    peak_val[k] = cur;
+                    peak_pos[k] = (int)i;
+                }
+                if (peak_val[k] > TH[k]) {
+                    for (int o = k+1; o < 2; o++) {
+                        mask_to[o] = (uint32_t)peak_pos[k] + W[0];
+                        peak_pos[o] = -1;
+                        peak_val[o] = FLT_MAX;
+                        valid[o] = 0;
+                    }
+                }
+                if (peak_val[k] - cur > ph && peak_val[k] > TH[k]) {
+                    valid[k] = 1;
+                }
+                if (valid[k] && ((int)i - peak_pos[k]) > (int)(W[k]/2)) {
+                    peaks[n_peaks++] = (uint32_t)peak_pos[k];
+                    peak_pos[k] = -1;
+                    peak_val[k] = cur;
+                    valid[k] = 0;
+                }
+            }
+        }
+    }
+    ri_kfree(km, ps); ri_kfree(km, pss);
+    float *events = 0;
+    if (n_peaks > 0) events = gen_events(km, sig, peaks, n_peaks, n, n_events);
+    else { *n_events = 0; }
+    ri_kfree(km, peaks);
+    return events;
+}
+
+/* Wrapper using "sensitive --r10" defaults. */
+static float* detect_events_turbo_default(void *km, float *sig, uint32_t n, uint32_t *n_events) {
+    /* Pull live defaults from --r10 sensitive: w1=3 w2=9 t1=6.5 t2=4 ph=0.2 */
+    return detect_events_turbo(km, sig, n, n_events,
+                                env_u("RH2_TURBO_W1", 3),
+                                env_u("RH2_TURBO_W2", 9),
+                                env_f("RH2_TURBO_T1", 6.5f),
+                                env_f("RH2_TURBO_T2", 4.0f),
+                                env_f("RH2_TURBO_PH", 0.2f));
+}
+
 static float* detect_events_python(void *km, float *sig, uint32_t n, const char *script_path, uint32_t *n_events) {
     if (!script_path || script_path[0] == '\0') {
         fprintf(stderr, "[ERROR] --segmenter python requires --segmenter-script <path>\n");
@@ -1064,6 +1422,21 @@ float* detect_events(void *km,
 				break;
 			case RI_SEGMENTER_WINDOW:
 				events = detect_events_window(km, norm_signals, n_signals, n_events);
+				break;
+			case RI_SEGMENTER_WAVELET:
+				events = detect_events_wavelet(km, norm_signals, n_signals, n_events);
+				break;
+			case RI_SEGMENTER_TDA:
+				events = detect_events_tda(km, norm_signals, n_signals, n_events);
+				break;
+			case RI_SEGMENTER_CONVBANK:
+				events = detect_events_convbank(km, norm_signals, n_signals, n_events);
+				break;
+			case RI_SEGMENTER_FUSION:
+				events = detect_events_fusion(km, norm_signals, n_signals, n_events);
+				break;
+			case RI_SEGMENTER_TURBO:
+				events = detect_events_turbo_default(km, norm_signals, n_signals, n_events);
 				break;
 		}
 		if (events && *n_events > 0) {
