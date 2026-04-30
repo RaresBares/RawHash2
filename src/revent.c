@@ -8,7 +8,42 @@
 #include <sys/wait.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <dlfcn.h>
+#if defined(__AVX2__)
+#include <immintrin.h>
+#endif
 #include "rutils.h"
+
+/* Optional GPU PELT (libpelt_cuda.so loaded at runtime) */
+typedef int (*pelt_cuda_fn_t)(const float *signal, int n, float pen_mult,
+                              int min_size, int win_size, int *out_cps, int max_cp);
+static pelt_cuda_fn_t g_pelt_cuda_fn = NULL;
+static int g_pelt_cuda_tried = 0;
+static void try_load_pelt_cuda(void) {
+    if (g_pelt_cuda_tried) return;
+    g_pelt_cuda_tried = 1;
+    const char *paths[] = {
+        getenv("RH2_PELT_CUDA_LIB"),
+        "./libpelt_cuda.so",
+        "/home/rsahleanu/rawhash2/lib/libpelt_cuda.so",
+        "libpelt_cuda.so",
+        NULL,
+    };
+    for (int i = 0; paths[i]; i++) {
+        if (!paths[i] || !*paths[i]) continue;
+        void *h = dlopen(paths[i], RTLD_NOW);
+        if (h) {
+            g_pelt_cuda_fn = (pelt_cuda_fn_t)dlsym(h, "pelt_cuda_run");
+            if (g_pelt_cuda_fn) {
+                fprintf(stderr, "[pelt_cuda] loaded %s\n", paths[i]);
+                return;
+            }
+            dlclose(h);
+        }
+    }
+    if (getenv("RH2_DEBUG_EVENTS"))
+        fprintf(stderr, "[pelt_cuda] no CUDA lib found, using AVX2/scalar fallback\n");
+}
 
 //Some of the functions here are adopted from the Sigmap implementation (https://github.com/haowenz/sigmap/tree/c9a40483264c9514587a36555b5af48d3f054f6f). We have optimized the Sigmap implementation to work with the hash tables efficiently.
 
@@ -412,7 +447,11 @@ static float* detect_events_pelt(void *km, float *sig, uint32_t n, uint32_t *n_e
         uint32_t new_n_cands = 0;
         for (uint32_t ci = 0; ci < n_cands; ci++) {
             uint32_t t = cands[ci];
-            if (j - t < min_size) continue;
+            if (j - t < min_size) {
+                // Too close for a valid segment at this j — keep candidate for future j
+                cands[new_n_cands++] = t;
+                continue;
+            }
             double seg_sum = ps[j] - ps[t];
             double seg_sumsq = pss[j] - pss[t];
             uint32_t seg_len = j - t;
@@ -445,6 +484,158 @@ static float* detect_events_pelt(void *km, float *sig, uint32_t n, uint32_t *n_e
     float *events = 0;
     if (n_cp > 0) events = gen_events(km, sig, cps, n_cp, n, n_events);
     else { *n_events = 0; }
+    if (getenv("RH2_DEBUG_EVENTS"))
+        fprintf(stderr, "[DBG_PELT] n_sig=%u n_cp=%u n_events=%u\n", n, n_cp, *n_events);
+    ri_kfree(km, cands); ri_kfree(km, cps);
+    return events;
+}
+
+/* PELT CUDA-accelerated segmenter:
+ *   1. Tries to dispatch to GPU CUDA kernel via libpelt_cuda.so (real GPU PELT)
+ *   2. Falls back to AVX2-vectorized + Window-PELT pruning on CPU
+ *   3. Uses window-restricted candidate set (RH2_PELT_CUDA_WIN samples) for
+ *      bounded inner-loop cost — empirically same F1 as full PELT on nanopore.
+ */
+static float* detect_events_pelt_cuda(void *km, float *sig, uint32_t n, uint32_t *n_events) {
+    if (n < 10) { *n_events = 0; return 0; }
+    float pen_mult = env_f("RH2_PELT_PEN_MULT", 0.05f);  /* tuned default */
+    int   min_size = (int)env_u("RH2_PELT_MIN_SIZE", 3);
+    int   win_size = (int)env_u("RH2_PELT_CUDA_WIN", 256);
+    int   use_gpu  = (int)env_u("RH2_PELT_USE_GPU", 1);
+
+    /* Try GPU path first if requested */
+    if (use_gpu) {
+        try_load_pelt_cuda();
+        if (g_pelt_cuda_fn) {
+            int *cps = (int*)ri_kmalloc(km, n * sizeof(int));
+            int n_cp = g_pelt_cuda_fn(sig, (int)n, pen_mult, min_size, win_size, cps, (int)n);
+            if (n_cp > 0) {
+                uint32_t *u_cps = (uint32_t*)ri_kmalloc(km, n_cp * sizeof(uint32_t));
+                for (int i = 0; i < n_cp; i++) u_cps[i] = (uint32_t)cps[i];
+                float *events = gen_events(km, sig, u_cps, (uint32_t)n_cp, n, n_events);
+                if (getenv("RH2_DEBUG_EVENTS"))
+                    fprintf(stderr, "[DBG_PELT_CUDA_GPU] n_sig=%u n_cp=%d n_events=%u\n",
+                            n, n_cp, *n_events);
+                ri_kfree(km, cps); ri_kfree(km, u_cps);
+                return events;
+            }
+            ri_kfree(km, cps);
+        }
+    }
+
+    /* CPU fallback: AVX2 + Window-PELT */
+    double penalty = (double)pen_mult * log((double)n);
+    double *ps  = (double*)ri_kcalloc(km, n+1, sizeof(double));
+    double *pss = (double*)ri_kcalloc(km, n+1, sizeof(double));
+    for (uint32_t i = 0; i < n; i++) {
+        ps[i+1]  = ps[i]  + sig[i];
+        pss[i+1] = pss[i] + (double)sig[i] * sig[i];
+    }
+    double *F = (double*)ri_kmalloc(km, (n+1) * sizeof(double));
+    int    *prev = (int*)ri_kmalloc(km, (n+1) * sizeof(int));
+    F[0] = -penalty;
+    for (uint32_t j = 1; j <= n; j++) { F[j] = 1e30; prev[j] = 0; }
+
+    uint32_t *cands = (uint32_t*)ri_kmalloc(km, (n+1) * sizeof(uint32_t));
+    uint32_t n_cands = 1; cands[0] = 0;
+
+    for (uint32_t j = (uint32_t)min_size; j <= n; j++) {
+        uint32_t new_n = 0;
+        double best_total = F[j];
+        int best_t = prev[j];
+
+#if defined(__AVX2__)
+        /* Vectorized inner loop: 4 candidates per iteration with double-precision AVX2.
+         * For each candidate t, compute SSR cost and total = F[t] + cost + penalty.
+         * After the SIMD pass, scalar finalizer for best & pruning. */
+        uint32_t i = 0;
+        if (n_cands >= 4) {
+            __m256d v_psj  = _mm256_set1_pd(ps[j]);
+            __m256d v_pssj = _mm256_set1_pd(pss[j]);
+            __m256d v_pen  = _mm256_set1_pd(penalty);
+            for (; i + 4 <= n_cands; i += 4) {
+                /* Gather is not in basic AVX2; use scalar gather for clarity. */
+                double pst[4], psst[4], Ft[4]; int tt[4];
+                int valid_mask[4] = {0,0,0,0};
+                for (int k = 0; k < 4; k++) {
+                    uint32_t t = cands[i+k]; tt[k] = (int)t;
+                    if (j - t >= (uint32_t)min_size) {
+                        pst[k]  = ps[t];  psst[k] = pss[t]; Ft[k] = F[t];
+                        valid_mask[k] = 1;
+                    } else { pst[k]=0; psst[k]=0; Ft[k]=1e30; }
+                }
+                __m256d v_pst  = _mm256_loadu_pd(pst);
+                __m256d v_psst = _mm256_loadu_pd(psst);
+                __m256d v_Ft   = _mm256_loadu_pd(Ft);
+                __m256d v_seg_sum = _mm256_sub_pd(v_psj, v_pst);
+                __m256d v_seg_sq  = _mm256_sub_pd(v_pssj, v_psst);
+                double seg_len_v[4] = { (double)(j-tt[0]), (double)(j-tt[1]),
+                                        (double)(j-tt[2]), (double)(j-tt[3]) };
+                __m256d v_len  = _mm256_loadu_pd(seg_len_v);
+                __m256d v_mean = _mm256_div_pd(v_seg_sum, v_len);
+                __m256d v_cost = _mm256_sub_pd(v_seg_sq, _mm256_mul_pd(v_seg_sum, v_mean));
+                __m256d v_total= _mm256_add_pd(_mm256_add_pd(v_Ft, v_cost), v_pen);
+                double tot[4];
+                _mm256_storeu_pd(tot, v_total);
+                for (int k = 0; k < 4; k++) {
+                    uint32_t t = (uint32_t)tt[k];
+                    if (!valid_mask[k]) {
+                        cands[new_n++] = t;  /* keep for later j */
+                        continue;
+                    }
+                    if (tot[k] < best_total) { best_total = tot[k]; best_t = (int)t; }
+                    /* Window-PELT: prune if t is older than win_size from j */
+                    if (j - t < (uint32_t)win_size) cands[new_n++] = t;
+                }
+            }
+        }
+        /* Tail (scalar) */
+        for (; i < n_cands; i++) {
+            uint32_t t = cands[i];
+            if (j - t < (uint32_t)min_size) { cands[new_n++] = t; continue; }
+            double seg_sum = ps[j] - ps[t];
+            double seg_sq  = pss[j] - pss[t];
+            double seg_len = (double)(j - t);
+            double mean    = seg_sum / seg_len;
+            double cost    = seg_sq - seg_sum * mean;
+            double total   = F[t] + cost + penalty;
+            if (total < best_total) { best_total = total; best_t = (int)t; }
+            if (j - t < (uint32_t)win_size) cands[new_n++] = t;
+        }
+#else
+        for (uint32_t i = 0; i < n_cands; i++) {
+            uint32_t t = cands[i];
+            if (j - t < (uint32_t)min_size) { cands[new_n++] = t; continue; }
+            double seg_sum = ps[j] - ps[t];
+            double seg_sq  = pss[j] - pss[t];
+            double seg_len = (double)(j - t);
+            double mean    = seg_sum / seg_len;
+            double cost    = seg_sq - seg_sum * mean;
+            double total   = F[t] + cost + penalty;
+            if (total < best_total) { best_total = total; best_t = (int)t; }
+            if (j - t < (uint32_t)win_size) cands[new_n++] = t;
+        }
+#endif
+        F[j] = best_total; prev[j] = best_t;
+        cands[new_n++] = j;
+        n_cands = new_n;
+    }
+
+    uint32_t *cps = (uint32_t*)ri_kmalloc(km, n * sizeof(uint32_t));
+    uint32_t n_cp = 0; int pos = (int)n;
+    while (pos > 0) {
+        if (prev[pos] > 0) cps[n_cp++] = (uint32_t)prev[pos];
+        pos = prev[pos];
+    }
+    for (uint32_t i = 0; i < n_cp / 2; i++) {
+        uint32_t tmp = cps[i]; cps[i] = cps[n_cp-1-i]; cps[n_cp-1-i] = tmp;
+    }
+    ri_kfree(km, ps); ri_kfree(km, pss); ri_kfree(km, F); ri_kfree(km, prev);
+    float *events = 0;
+    if (n_cp > 0) events = gen_events(km, sig, cps, n_cp, n, n_events);
+    else { *n_events = 0; }
+    if (getenv("RH2_DEBUG_EVENTS"))
+        fprintf(stderr, "[DBG_PELT_CUDA_CPU] n_sig=%u n_cp=%u n_events=%u\n", n, n_cp, *n_events);
     ri_kfree(km, cands); ri_kfree(km, cps);
     return events;
 }
@@ -1438,6 +1629,9 @@ float* detect_events(void *km,
 			case RI_SEGMENTER_TURBO:
 				events = detect_events_turbo_default(km, norm_signals, n_signals, n_events);
 				break;
+			case RI_SEGMENTER_PELT_CUDA:
+				events = detect_events_pelt_cuda(km, norm_signals, n_signals, n_events);
+				break;
 		}
 		if (events && *n_events > 0) {
 			ri_kfree(km, norm_signals);
@@ -1469,6 +1663,8 @@ float* detect_events(void *km,
 
 	float* events = 0;
 	if(n_peaks > 0) events = gen_events(km, norm_signals, peaks, n_peaks, n_signals, n_events);
+	if (getenv("RH2_DEBUG_EVENTS"))
+		fprintf(stderr, "[DBG_DEF] n_sig=%u n_peaks=%u n_events=%u\n", n_signals, n_peaks, *n_events);
 	ri_kfree(km, norm_signals); ri_kfree(km, peaks);
 	return events;
 }
