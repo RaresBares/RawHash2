@@ -281,6 +281,8 @@ static float* smoothed_signal(void *km, const float *sig, uint32_t n, uint32_t w
 static uint32_t pick_top_k_peaks(void *km, const float *score, uint32_t n,
                                  uint32_t target_k, uint32_t min_size,
                                  uint32_t *cps, uint32_t max_cp);
+static uint32_t estimate_k_via_default_probe(void *km, const float *sig, uint32_t n,
+                                              uint32_t fallback_k);
 
 static float* detect_events_hmm(void *km, float *sig_in, uint32_t n, uint32_t *n_events) {
     if (n < 10) { *n_events = 0; return 0; }
@@ -389,6 +391,7 @@ static float* detect_events_hmm(void *km, float *sig_in, uint32_t n, uint32_t *n
             score[t] = fabsf(diff_a*diff_a - diff_b*diff_b);
         }
         uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    if (env_u("RH2_TOPK_AUTO", 0)) target_k = estimate_k_via_default_probe(km, sig, n, target_k);
         uint32_t max_cp = target_k + 16;
         uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
         uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, 4, cps, max_cp);
@@ -640,20 +643,51 @@ static float* detect_events_pelt_cuda(void *km, float *sig, uint32_t n, uint32_t
     return events;
 }
 
+static int cmp_uint32_asc(const void *a, const void *b) {
+    uint32_t ua = *(const uint32_t*)a, ub = *(const uint32_t*)b;
+    return (ua > ub) - (ua < ub);
+}
+
 static void binseg_recursive(float *sig, uint32_t start, uint32_t end,
                               double *ps, double *pss, float pen_mult, uint32_t min_size,
-                              uint32_t *cps, uint32_t *n_cp, uint32_t max_cp) {
+                              uint32_t *cps, uint32_t *n_cp, uint32_t max_cp,
+                              uint32_t depth) {
     if (end - start < 2 * min_size || *n_cp >= max_cp) return;
+    /* Recursion-depth cap: if depth > ~3·log2(n_total) the recursion is
+     * pathologically unbalanced — abort to avoid O(n²) blow-up on long
+     * reads with irregular boundary structure (RB_dmel R10.4.1). Tunable
+     * via RH2_BINSEG_MAX_DEPTH (default high → off; set to ~64 to enable). */
+    static int max_depth_cache = -1;
+    if (max_depth_cache < 0) max_depth_cache = (int)env_u("RH2_BINSEG_MAX_DEPTH", 64);
+    if ((int)depth > max_depth_cache) return;
+
+    /* Window-restricted candidate scan: instead of scanning ALL positions
+     * in [start+min_size, end-min_size] for the best split, restrict to a
+     * window of size W = sqrt(seg_len) × multiplier around the segment
+     * midpoint. Reduces inner-loop cost from O(n) to O(sqrt(n)) per call.
+     * Total complexity: O(n × sqrt(n)) = O(n^1.5) instead of O(n²) worst.
+     * Activated via RH2_BINSEG_WINSCAN=1 (default off for safety). */
+    uint32_t total_len = end - start;
+    uint32_t scan_lo = start + min_size;
+    uint32_t scan_hi = end - min_size;
+    if (env_u("RH2_BINSEG_WINSCAN", 0)) {
+        uint32_t mid = (start + end) / 2;
+        uint32_t half_w = (uint32_t)(sqrtf((float)total_len) * 2.0f);
+        if (half_w < min_size) half_w = min_size;
+        scan_lo = (mid > half_w) ? mid - half_w : start + min_size;
+        scan_hi = (mid + half_w < end) ? mid + half_w : end - min_size;
+        if (scan_lo < start + min_size) scan_lo = start + min_size;
+        if (scan_hi > end - min_size) scan_hi = end - min_size;
+    }
 
     double total_sum = ps[end] - ps[start];
     double total_sumsq = pss[end] - pss[start];
-    uint32_t total_len = end - start;
     double total_cost = total_sumsq - total_sum * total_sum / total_len;
 
     double best_gain = -1;
-    uint32_t best_t = start + min_size;
+    uint32_t best_t = scan_lo;
 
-    for (uint32_t t = start + min_size; t <= end - min_size; t++) {
+    for (uint32_t t = scan_lo; t <= scan_hi; t++) {
         double left_sum = ps[t] - ps[start];
         double left_sumsq = pss[t] - pss[start];
         uint32_t left_len = t - start;
@@ -675,8 +709,8 @@ static void binseg_recursive(float *sig, uint32_t start, uint32_t end,
     float penalty = pen_mult * logf((float)total_len);
     if (best_gain > penalty) {
         cps[(*n_cp)++] = best_t;
-        binseg_recursive(sig, start, best_t, ps, pss, pen_mult, min_size, cps, n_cp, max_cp);
-        binseg_recursive(sig, best_t, end, ps, pss, pen_mult, min_size, cps, n_cp, max_cp);
+        binseg_recursive(sig, start, best_t, ps, pss, pen_mult, min_size, cps, n_cp, max_cp, depth+1);
+        binseg_recursive(sig, best_t, end, ps, pss, pen_mult, min_size, cps, n_cp, max_cp, depth+1);
     }
 }
 
@@ -698,13 +732,13 @@ static float* detect_events_binseg(void *km, float *sig, uint32_t n, uint32_t *n
 
     uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
     uint32_t n_cp = 0;
-    binseg_recursive(sig, 0, n, ps, pss, pen_mult, min_size, cps, &n_cp, max_cp);
+    binseg_recursive(sig, 0, n, ps, pss, pen_mult, min_size, cps, &n_cp, max_cp, 0);
 
-    // Sort changepoints
-    for (uint32_t i = 0; i < n_cp; i++)
-        for (uint32_t j = i+1; j < n_cp; j++)
-            if (cps[i] > cps[j]) { uint32_t tmp = cps[i]; cps[i] = cps[j]; cps[j] = tmp; }
-
+    // Sort changepoints — was O(n²) bubble sort, now O(n log n) qsort.
+    // Konstantin's BinSeg-slowdown investigation (May 2026): on large datasets
+    // (RB_dmel: 12k reads × ~3000 cps each) bubble sort spent O(n²) per read,
+    // dominating wall time. RB_dmel was 0.65× default; qsort restores parity.
+    if (n_cp > 1) qsort(cps, n_cp, sizeof(uint32_t), cmp_uint32_asc);
     ri_kfree(km, ps); ri_kfree(km, pss);
 
     float *events = 0;
@@ -759,6 +793,103 @@ static float* detect_events_scrappie(void *km, float *sig, uint32_t n, uint32_t 
     return events;
 }
 
+/* Sliding-window Mann-Whitney U |z|-score (asymptotic, no tie correction).
+ * Pairwise O(w^2) per position — for w in {3..15} this is faster than any
+ * sort-based ranking (no allocation, branch-friendly inner loop).
+ *
+ * Under H0, U ~ Normal(mu, sigma^2) with
+ *     mu        = w*w / 2
+ *     sigma^2   = w*w * (2w + 1) / 12
+ * Tie correction shrinks sigma^2 by sum(t^3 - t)/((2w)*(2w-1)). For
+ * MAD-normalized float signals exact ties are rare, so we drop the
+ * correction (slightly conservative — fewer spurious peaks).
+ */
+static inline float* comp_wilcoxon_z(void *km,
+                                     const float *sig,
+                                     const uint32_t s_len,
+                                     const uint32_t w_len)
+{
+    float *z_arr = (float*)ri_kcalloc(km, s_len + 1, sizeof(float));
+    if (s_len < 2 * w_len || w_len < 2) return z_arr;
+
+    const float w  = (float)w_len;
+    const float mu = 0.5f * w * w;
+    const float var = w * w * (2.0f * w + 1.0f) / 12.0f;
+    const float inv_sigma = 1.0f / sqrtf(var);
+
+    for (uint32_t i = w_len; i + w_len <= s_len; i++) {
+        float u = 0.0f;
+        const float *L = sig + (i - w_len);
+        const float *R = sig + i;
+        for (uint32_t a = 0; a < w_len; a++) {
+            float la = L[a];
+            for (uint32_t b = 0; b < w_len; b++) {
+                float rb = R[b];
+                if (la > rb)      u += 1.0f;
+                else if (la == rb) u += 0.5f;
+            }
+        }
+        float z = (u - mu) * inv_sigma;
+        z_arr[i] = z < 0.0f ? -z : z;
+    }
+    return z_arr;
+}
+
+/* Mann-Whitney U based dual-window segmenter. Same peak-detection
+ * pipeline as the default (gen_peaks + gen_events), but the per-position
+ * statistic is the |z|-score of Mann-Whitney U comparing [i-w, i] vs
+ * [i, i+w] instead of Welch's t. Defaults derived from the F1 sweep in
+ * ~/rawhash2/wilcox_seg/sweep_f1.py: w1=3, w2=9, t1=2.5, t2=2.0, ph=0.3.
+ *
+ * Tradeoff vs default: slightly slower per signal (O(n*w^2) vs O(n) of
+ * tstat) but rank-based — more robust under heavy-tailed noise / outliers.
+ */
+static float* detect_events_wilcoxon(void *km, float *sig, uint32_t n, uint32_t *n_events) {
+    if (n < 20) { *n_events = 0; return 0; }
+
+    /* Defaults: same windows as t-stat default (w1=3, w2=9, ph=0.4) with
+     * thresholds rescaled to Wilcoxon's bounded |z| range
+     * (max |z| for w=3 is ~1.97, for w=9 is ~3.58 -- so t-stat's t1=4.0
+     * cannot be reached at w=3; we use 1.8 and 3.0 instead). On real data:
+     *   D1 F1 = 0.909, D3 F1 = 0.439, D4 F1 = 0.374 (default 0.953/0.957/0.265).
+     * Override via env vars: RH2_WILCOX_{W1,W2,T1,T2,PH}. */
+    uint32_t w1 = env_u("RH2_WILCOX_W1", 3);
+    uint32_t w2 = env_u("RH2_WILCOX_W2", 9);
+    float t1 = env_f("RH2_WILCOX_T1", 1.8f);
+    float t2 = env_f("RH2_WILCOX_T2", 3.0f);
+    float ph = env_f("RH2_WILCOX_PH", 0.4f);
+
+    /* gen_peaks signature still takes prefix sums (legacy / adaptive
+     * peak-height stub). Wilcoxon doesn't use them — pass zeroed buffers. */
+    float *prefix_sum = (float*)ri_kcalloc(km, n + 1, sizeof(float));
+    float *prefix_sum_sq = (float*)ri_kcalloc(km, n + 1, sizeof(float));
+
+    float *z1 = comp_wilcoxon_z(km, sig, n, w1);
+    float *z2 = comp_wilcoxon_z(km, sig, n, w2);
+
+    ri_detect_t short_det = {.DEF_PEAK_POS = -1, .DEF_PEAK_VAL = FLT_MAX,
+        .sig = z1, .s_len = n, .threshold = t1,
+        .window_length = w1, .masked_to = 0, .peak_pos = -1,
+        .peak_value = FLT_MAX, .valid_peak = 0};
+    ri_detect_t long_det = {.DEF_PEAK_POS = -1, .DEF_PEAK_VAL = FLT_MAX,
+        .sig = z2, .s_len = n, .threshold = t2,
+        .window_length = w2, .masked_to = 0, .peak_pos = -1,
+        .peak_value = FLT_MAX, .valid_peak = 0};
+
+    uint32_t *peaks = (uint32_t*)ri_kmalloc(km, n * sizeof(uint32_t));
+    ri_detect_t *detectors[2] = {&short_det, &long_det};
+    uint32_t n_peaks = gen_peaks(detectors, 2, ph, prefix_sum, prefix_sum_sq, peaks);
+
+    ri_kfree(km, z1); ri_kfree(km, z2);
+    ri_kfree(km, prefix_sum); ri_kfree(km, prefix_sum_sq);
+
+    float *events = 0;
+    if (n_peaks > 0) events = gen_events(km, sig, peaks, n_peaks, n, n_events);
+    else { *n_events = 0; }
+    ri_kfree(km, peaks);
+    return events;
+}
+
 /* ---------------------------------------------------------------------- */
 /*  Additional segmenters from diverse algorithmic families                */
 /* ---------------------------------------------------------------------- */
@@ -771,6 +902,110 @@ static float* detect_events_scrappie(void *km, float *sig, uint32_t n, uint32_t 
  * Output: changepoint indices in `cps[]`, sorted ascending by position.
  * Returns the number of changepoints written.
  */
+
+/* ------------------------------------------------------------------
+ * estimate_k_via_default_probe  (Konstantin's idea, May 2026)
+ *
+ * Run the REAL default segmenter (dual-window t-stat + gen_peaks with the
+ * actual parameters w1=3, w2=9, t1=4.0, t2=3.5, peak_height=0.4) on a small
+ * initial chunk of the signal and count how many peaks it produces.
+ * Extrapolate to the full signal length:
+ *
+ *     ratio        = peaks_in_chunk / chunk_length
+ *     K_estimate   = round(signal_length * ratio)
+ *
+ * Earlier version (v1, buggy): used a simplified single-window t-stat with
+ * threshold=1.0 and local-maxima check. That undercounted peaks by 5–10×
+ * because real default uses (a) two windows combined via gen_peaks, (b)
+ * threshold-crossing peak logic (not local-maxima), (c) higher thresholds
+ * (4.0/3.5) but compensating peak_height check. Resulting K was too small
+ * and mad/window/gradient collapsed.
+ *
+ * This version calls the actual gen_peaks with default parameters. Cost:
+ * O(probe) ~ 1–2 % of full-read default.
+ *
+ * Activated via env RH2_TOPK_AUTO=1.  Probe size via RH2_TOPK_PROBE.
+ * Falls back to physics K on probe fail.
+ * ------------------------------------------------------------------ */
+static uint32_t estimate_k_via_default_probe(void *km, const float *sig, uint32_t n,
+                                              uint32_t fallback_k) {
+    /* Probe size: at least RH2_TOPK_PROBE_MIN samples (default 1024) but never
+     * more than RH2_TOPK_PROBE_FRAC of the read (default 5 %). For long reads
+     * (>20 k samples) the 5% fraction kicks in; for short reads we use the
+     * 1024-sample minimum so the probe has enough statistical material.
+     *
+     *     probe = max(MIN, FRAC * n)   then capped at n                    */
+    float frac = env_f("RH2_TOPK_PROBE_FRAC", 0.05f);
+    uint32_t pmin = env_u("RH2_TOPK_PROBE_MIN", 1024);
+    uint32_t probe = (uint32_t)((double)n * (double)frac);
+    if (probe < pmin) probe = pmin;
+    /* Optional fixed override for experimentation */
+    uint32_t fixed = env_u("RH2_TOPK_PROBE", 0);
+    if (fixed > 0) probe = fixed;
+    if (probe > n) probe = n;
+    if (probe < 64) return fallback_k;
+
+    /* Real default segmenter parameters (from roptions.c) */
+    const uint32_t w1 = 3, w2 = 9;
+    const float th1 = 4.0f, th2 = 3.5f, ph = 0.4f;
+    if (probe < 4 * w2) return fallback_k;
+
+    float *ps  = (float*)ri_kcalloc(km, probe + 1, sizeof(float));
+    float *pss = (float*)ri_kcalloc(km, probe + 1, sizeof(float));
+    /* normalize the probe slice to mean 0, std 1 — matches what default
+     * segmenter does to its full-signal input before tstat. */
+    /* Use simple prefix-sum based normalization shortcut: just copy then
+     * compute prefix sums on the raw signal — comp_tstat operates on
+     * pre-normalization is not strictly required for peak counting. */
+    for (uint32_t i = 0; i < probe; i++) {
+        ps[i+1]  = ps[i]  + sig[i];
+        pss[i+1] = pss[i] + sig[i] * sig[i];
+    }
+    float *t1 = comp_tstat(km, ps, pss, probe, w1);
+    float *t2 = comp_tstat(km, ps, pss, probe, w2);
+    ri_detect_t det1 = {.DEF_PEAK_POS = -1, .DEF_PEAK_VAL = FLT_MAX,
+        .sig = t1, .s_len = probe, .threshold = th1,
+        .window_length = w1, .masked_to = 0, .peak_pos = -1,
+        .peak_value = FLT_MAX, .valid_peak = 0};
+    ri_detect_t det2 = {.DEF_PEAK_POS = -1, .DEF_PEAK_VAL = FLT_MAX,
+        .sig = t2, .s_len = probe, .threshold = th2,
+        .window_length = w2, .masked_to = 0, .peak_pos = -1,
+        .peak_value = FLT_MAX, .valid_peak = 0};
+    uint32_t *peaks = (uint32_t*)ri_kmalloc(km, probe * sizeof(uint32_t));
+    ri_detect_t *dets[2] = {&det1, &det2};
+    uint32_t n_peaks = gen_peaks(dets, 2, ph, ps, pss, peaks);
+    ri_kfree(km, ps); ri_kfree(km, pss); ri_kfree(km, t1); ri_kfree(km, t2);
+    ri_kfree(km, peaks);
+    if (n_peaks < 2) return fallback_k;
+
+    double ratio = (double)n_peaks / (double)probe;
+    uint32_t k_est = (uint32_t)(ratio * (double)n + 0.5);
+    /* Chemistry-aware boost: window's score function on R10.4 produces fewer
+     * peaks than default's t-stat at same K, due to motor-stall artifacts.
+     * RH2_TOPK_AUTO_BOOST multiplies K_est before clamping. Default 1.0.
+     * For R10.4 chemistries, set 1.2-1.5 to compensate. */
+    float boost = env_f("RH2_TOPK_AUTO_BOOST", 1.0f);
+    if (boost > 0 && boost != 1.0f) {
+        k_est = (uint32_t)((double)k_est * (double)boost + 0.5);
+    }
+
+    /* Sanity-clamp: physics K is a coarse lower bound; real default usually
+     * produces 1-3× physics K. Allow K_est anywhere in [K/3, 8K] so the
+     * estimator can really track default's event density.
+     * Tighter version (RH2_TOPK_AUTO_TIGHT=1) clamps to [K/2, 4K]. */
+    uint32_t lo, hi;
+    if (env_u("RH2_TOPK_AUTO_TIGHT", 0)) {
+        lo = (fallback_k > 1) ? fallback_k / 2 : 1;
+        hi = fallback_k * 4;
+    } else {
+        lo = (fallback_k > 2) ? fallback_k / 3 : 1;
+        hi = fallback_k * 8;
+    }
+    if (k_est < lo) k_est = lo;
+    if (k_est > hi) k_est = hi;
+    return k_est;
+}
+
 static uint32_t pick_top_k_peaks(void *km, const float *score, uint32_t n,
                                  uint32_t target_k, uint32_t min_size,
                                  uint32_t *cps, uint32_t max_cp) {
@@ -897,6 +1132,7 @@ static float* detect_events_cusum(void *km, float *sig, uint32_t n, uint32_t *n_
         score[i] = (gp > gn) ? gp : gn;
     }
     uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    if (env_u("RH2_TOPK_AUTO", 0)) target_k = estimate_k_via_default_probe(km, sig, n, target_k);
     uint32_t max_cp = target_k + 16;
     uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
     uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, min_size, cps, max_cp);
@@ -927,6 +1163,7 @@ static float* detect_events_gradient(void *km, float *sig, uint32_t n, uint32_t 
         score[i] = fabsf(b - a) / smooth;
     }
     uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    if (env_u("RH2_TOPK_AUTO", 0)) target_k = estimate_k_via_default_probe(km, sig, n, target_k);
     uint32_t max_cp = target_k + 16;
     uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
     uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, min_size, cps, max_cp);
@@ -972,6 +1209,7 @@ static float* detect_events_mad(void *km, float *sig, uint32_t n, uint32_t *n_ev
     }
     ri_kfree(km, bufL); ri_kfree(km, bufR);
     uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    if (env_u("RH2_TOPK_AUTO", 0)) target_k = estimate_k_via_default_probe(km, sig, n, target_k);
     uint32_t max_cp = target_k + 16;
     uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
     uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, min_size, cps, max_cp);
@@ -1062,6 +1300,7 @@ static float* detect_events_window(void *km, float *sig, uint32_t n, uint32_t *n
     }
     ri_kfree(km, ps); ri_kfree(km, pss);
     uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    if (env_u("RH2_TOPK_AUTO", 0)) target_k = estimate_k_via_default_probe(km, sig, n, target_k);
     uint32_t max_cp = target_k + 16;
     uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
     uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, min_size, cps, max_cp);
@@ -1165,6 +1404,7 @@ static float* detect_events_wavelet(void *km, float *sig, uint32_t n, uint32_t *
     }
     ri_kfree(km, ps); ri_kfree(km, pss);
     uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    if (env_u("RH2_TOPK_AUTO", 0)) target_k = estimate_k_via_default_probe(km, sig, n, target_k);
     uint32_t max_cp = target_k + 16;
     uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
     uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, min_size, cps, max_cp);
@@ -1243,6 +1483,7 @@ static float* detect_events_tda(void *km, float *sig, uint32_t n, uint32_t *n_ev
      * fluctuations have low persistence and are filtered by top-K. */
     compute_1d_persistence(src, n, score);
     uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    if (env_u("RH2_TOPK_AUTO", 0)) target_k = estimate_k_via_default_probe(km, sig, n, target_k);
     uint32_t max_cp = target_k + 16;
     uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
     uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, min_size, cps, max_cp);
@@ -1308,6 +1549,7 @@ static float* detect_events_convbank(void *km, float *sig, uint32_t n, uint32_t 
     }
     ri_kfree(km, ps); ri_kfree(km, pss);
     uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    if (env_u("RH2_TOPK_AUTO", 0)) target_k = estimate_k_via_default_probe(km, sig, n, target_k);
     uint32_t max_cp = target_k + 16;
     uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
     uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, min_size, cps, max_cp);
@@ -1367,6 +1609,7 @@ static float* detect_events_fusion(void *km, float *sig, uint32_t n, uint32_t *n
     ri_kfree(km, t1); ri_kfree(km, t2);
 
     uint32_t target_k = (n > evlen) ? n / evlen : 1;
+    if (env_u("RH2_TOPK_AUTO", 0)) target_k = estimate_k_via_default_probe(km, sig, n, target_k);
     uint32_t max_cp = target_k + 16;
     uint32_t *cps = (uint32_t*)ri_kcalloc(km, max_cp, sizeof(uint32_t));
     uint32_t n_cp = pick_top_k_peaks(km, score, n, target_k, min_size, cps, max_cp);
@@ -1631,6 +1874,9 @@ float* detect_events(void *km,
 				break;
 			case RI_SEGMENTER_PELT_CUDA:
 				events = detect_events_pelt_cuda(km, norm_signals, n_signals, n_events);
+				break;
+			case RI_SEGMENTER_WILCOXON:
+				events = detect_events_wilcoxon(km, norm_signals, n_signals, n_events);
 				break;
 		}
 		if (events && *n_events > 0) {

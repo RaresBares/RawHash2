@@ -439,6 +439,7 @@ int main(int argc, char *argv[])
 			else if (strcmp(o.arg, "window") == 0) { opt.segmenter_type = RI_SEGMENTER_WINDOW; ipt.segmenter_type = RI_SEGMENTER_WINDOW; }
 			else if (strcmp(o.arg, "turbo") == 0)  { opt.segmenter_type = RI_SEGMENTER_TURBO; ipt.segmenter_type = RI_SEGMENTER_TURBO; }
 			else if (strcmp(o.arg, "pelt_cuda") == 0)  { opt.segmenter_type = RI_SEGMENTER_PELT_CUDA; ipt.segmenter_type = RI_SEGMENTER_PELT_CUDA; }
+			else if (strcmp(o.arg, "wilcoxon") == 0)   { opt.segmenter_type = RI_SEGMENTER_WILCOXON; ipt.segmenter_type = RI_SEGMENTER_WILCOXON; }
 			else { fprintf(stderr, "[ERROR] unknown segmenter '%s'\n", o.arg); return 1; }
 		}
 		else if (c == 373) { opt.python_segmenter_script = o.arg; ipt.python_segmenter_script = o.arg; } // --segmenter-script

@@ -1,0 +1,28 @@
+Bench: 10kb (~90k samples) and 100kb (~900k samples) signals
+
+=== SYNTH 10kb (90k samples)  (n=5) ===
+  tstat:    F1 = 0.850 +- 0.003   time =   60.32 ms   n_seg = 8359
+  wilcox:   F1 = 0.720 +- 0.005   time =  109.60 ms   n_seg = 5629
+  slowdown wilcox/tstat = 1.8x
+
+=== SYNTH 100kb (900k samples)  (n=3) ===
+  tstat:    F1 = 0.851 +- 0.000   time =  621.06 ms   n_seg = 83417
+  wilcox:   F1 = 0.721 +- 0.001   time = 1175.18 ms   n_seg = 56393
+  slowdown wilcox/tstat = 1.9x
+
+Loading real reads...
+  10kb-target reads found: 5
+  100kb-target reads found: 3 (actual lens: [521507, 387090, 432765])
+
+=== REAL 10kb (~90k samples)  (n=5) ===
+  median read len: 75832 samples
+  tstat:    time =   54.30 ms   n_seg = 8039   sigma2 = 587.91
+  wilcox:   time =  100.79 ms   n_seg = 4465   sigma2 = 1295.11
+  slowdown wilcox/tstat = 1.9x
+
+=== REAL 100kb (~750k actual)  (n=3) ===
+  median read len: 432765 samples
+  tstat:    time =  320.70 ms   n_seg = 47913   sigma2 = 68.28
+  wilcox:   time =  628.28 ms   n_seg = 27189   sigma2 = 173.29
+  slowdown wilcox/tstat = 2.0x
+
